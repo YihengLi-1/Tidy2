@@ -8,6 +8,7 @@ struct SettingsView: View {
     @AppStorage("scan_interval_hours") private var scanIntervalHours = 1.0
     @AppStorage("auto_analyze_enabled") private var autoAnalyzeEnabled = true
     @AppStorage("quarantine_retention_days") private var retentionDays = 30
+    @AppStorage("dailyScanEnabled") private var dailyScanEnabled = false
 
     @State private var showResetConfirmation = false
 
@@ -73,6 +74,10 @@ struct SettingsView: View {
                 )
             }
 
+            Section("后台自动整理") {
+                Toggle("每天早上 9 点自动整理低风险文件", isOn: $dailyScanEnabled)
+            }
+
             Section("危险区域") {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("重置不会删除你的实际文件，只会清除本地扫描记录、AI 分析结果和整理建议。")
@@ -90,6 +95,13 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .navigationTitle("偏好设置")
+        .onChange(of: dailyScanEnabled) { enabled in
+            if enabled {
+                try? appState.installLaunchAgent()
+            } else {
+                removeDailyLaunchAgent()
+            }
+        }
         .confirmationDialog(
             "确认重置应用数据？",
             isPresented: $showResetConfirmation,
@@ -172,5 +184,12 @@ struct SettingsView: View {
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
         Task { await appState.saveDefaultArchiveRoot(url: url) }
+    }
+
+    private func removeDailyLaunchAgent() {
+        let url = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents")
+            .appendingPathComponent("com.tidy2.dailyscan.plist")
+        try? FileManager.default.removeItem(at: url)
     }
 }

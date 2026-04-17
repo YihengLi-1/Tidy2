@@ -1,14 +1,37 @@
 import AppKit
 import SwiftUI
 
+enum AppSceneID {
+    static let mainWindow = "main-window"
+}
+
 @main
 struct Tidy2App: App {
     @StateObject private var launcher = AppLauncher()
+    private let isBackgroundScan = CommandLine.arguments.contains("--background-scan")
+
+    init() {
+        if CommandLine.arguments.contains("--background-scan") {
+            NSApp.setActivationPolicy(.prohibited)
+        }
+    }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: AppSceneID.mainWindow) {
             Group {
-                if let appState = launcher.appState {
+                if isBackgroundScan {
+                    if let appState = launcher.appState {
+                        EmptyView()
+                            .task {
+                                await appState.bootstrapIfNeeded()
+                                await appState.runBackgroundScanAndAutoApply()
+                                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                                NSApp.terminate(nil)
+                            }
+                    } else {
+                        EmptyView()
+                    }
+                } else if let appState = launcher.appState {
                     RootView()
                         .environmentObject(appState)
                         .task {
@@ -20,6 +43,22 @@ struct Tidy2App: App {
             }
             .frame(minWidth: 780, minHeight: 520)
         }
+
+        MenuBarExtra {
+            Group {
+                if let appState = launcher.appState {
+                    MenuBarContentView()
+                        .environmentObject(appState)
+                } else {
+                    Text("正在启动…")
+                        .padding(12)
+                }
+            }
+        } label: {
+            let count = launcher.appState?.bundles.count ?? 0
+            Label(count > 0 ? "\(count)" : "", systemImage: "folder.badge.gearshape")
+        }
+        .menuBarExtraStyle(.menu)
     }
 }
 

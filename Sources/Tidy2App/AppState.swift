@@ -325,6 +325,10 @@ final class AppState: ObservableObject {
         scanNoActionReasonForHome()
     }
 
+    var lastScanDate: Date? {
+        lastScanAt
+    }
+
     var largeTotalBytes: Int64 {
         largeFiles.reduce(Int64(0)) { $0 + $1.sizeBytes }
     }
@@ -370,6 +374,10 @@ final class AppState: ObservableObject {
     func openBundles() {
         digestNudgeText = nil
         pendingTab = .bundles
+    }
+
+    func openBundlesTab() {
+        openBundles()
     }
 
     func openBundleDetail(_ bundle: DecisionBundle) {
@@ -1749,6 +1757,36 @@ final class AppState: ObservableObject {
         }
     }
 
+    func installLaunchAgent() throws {
+        let plistName = "com.tidy2.dailyscan.plist"
+        let launchAgentsDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents")
+        let destination = launchAgentsDir.appendingPathComponent(plistName)
+
+        guard !FileManager.default.fileExists(atPath: destination.path) else { return }
+
+        let execPath = Bundle.main.executablePath ?? ""
+        let plist: [String: Any] = [
+            "Label": "com.tidy2.dailyscan",
+            "ProgramArguments": [execPath, "--background-scan"],
+            "StartCalendarInterval": [["Hour": 9, "Minute": 0]],
+            "RunAtLoad": false,
+            "StandardOutPath": NSHomeDirectory() + "/Library/Logs/Tidy2-bg.log",
+            "StandardErrorPath": NSHomeDirectory() + "/Library/Logs/Tidy2-bg.log"
+        ]
+
+        let data = try PropertyListSerialization.data(
+            fromPropertyList: plist,
+            format: .xml,
+            options: 0
+        )
+        try FileManager.default.createDirectory(
+            at: launchAgentsDir,
+            withIntermediateDirectories: true
+        )
+        try data.write(to: destination)
+    }
+
     func saveDefaultArchiveRoot(url: URL) async {
         do {
             archiveRootPath = url.path
@@ -1761,6 +1799,15 @@ final class AppState: ObservableObject {
             await refreshAll(trigger: "archive-root-updated")
         } catch {
             handleError(error)
+        }
+    }
+
+    func runBackgroundScanAndAutoApply() async {
+        await runAutopilotNow()
+        await loadBundles()
+        let lowRiskBundles = bundles.filter { $0.risk == .low }
+        for bundle in lowRiskBundles {
+            _ = await applyBundle(bundleID: bundle.id, override: nil)
         }
     }
 
