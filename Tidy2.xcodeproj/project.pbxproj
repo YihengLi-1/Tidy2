@@ -36,6 +36,7 @@
 		8F15FE2CCEF4ED96A632F35C /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49542AE2C7669837161913C3 /* AppState.swift */; };
 		8F48E9E099F808D3FABC1C4C /* QuarantineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A07F1BCC332766C8DB99F79 /* QuarantineService.swift */; };
 		9286BB6738FB081848A03DB5 /* ActionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF64FDDE9930CAB85F6CD53 /* ActionEngine.swift */; };
+		9B77F736E497B058DA787FEA /* NotificationDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B32E42F41C35A80A4D5B044 /* NotificationDelegate.swift */; };
 		A659BA6D671A60206DDC90B5 /* MetricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A606220FC7ECFE75AA7727B /* MetricsView.swift */; };
 		B07D171667F4CD654C23B1FB /* ConsistencyChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22DB0253B36B21F1C57B9831 /* ConsistencyChecker.swift */; };
 		B1FCDC35330F6BA7DF236330 /* AccessManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6157DE4934A077BFFB46CAD /* AccessManager.swift */; };
@@ -73,6 +74,7 @@
 		4A462E99E68B62BBD92F9358 /* DuplicatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatesView.swift; sourceTree = "<group>"; };
 		56DDCE14316BB04101D654F1 /* MenuBarContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContentView.swift; sourceTree = "<group>"; };
 		5B5F4BFB18CBABDCF15E9C3E /* FileHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileHash.swift; sourceTree = "<group>"; };
+		7B32E42F41C35A80A4D5B044 /* NotificationDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationDelegate.swift; sourceTree = "<group>"; };
 		7F89F19515C5DCAF22BDD824 /* FileIntelligenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileIntelligenceService.swift; sourceTree = "<group>"; };
 		8BC2015188A6B0A89374EA4E /* BundlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundlesView.swift; sourceTree = "<group>"; };
 		8CBA8A1A706BEFEC7805203E /* FileIntelligence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileIntelligence.swift; sourceTree = "<group>"; };
@@ -105,6 +107,7 @@
 			children = (
 				49542AE2C7669837161913C3 /* AppState.swift */,
 				F9AF6610E00E4BC6E911F150 /* Assets.xcassets */,
+				7B32E42F41C35A80A4D5B044 /* NotificationDelegate.swift */,
 				DA0F6A9DE5473D80176F99E0 /* Tidy2App.swift */,
 				5F677713E821291E78B61BC7 /* Models */,
 				E9C2375B1B72647660271A13 /* Persistence */,
@@ -299,6 +302,7 @@
 				519C187B6CD1F5343CDC5226 /* MenuBarContentView.swift in Sources */,
 				DB01AE06A5AC72FC638CC6A3 /* MetricsStore.swift in Sources */,
 				A659BA6D671A60206DDC90B5 /* MetricsView.swift in Sources */,
+				9B77F736E497B058DA787FEA /* NotificationDelegate.swift in Sources */,
 				0CA84598CC2142D61083C70D /* OnboardingView.swift in Sources */,
 				377550A2189F217E337DF6BB /* Protocols.swift in Sources */,
 				8F48E9E099F808D3FABC1C4C /* QuarantineService.swift in Sources */,

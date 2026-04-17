@@ -254,7 +254,6 @@ final class AppState: ObservableObject {
                 self.scanProgressDetail = "正在扫描 \(self.displayName(for: scope))… 已发现 \(count) 个文件"
             }
         }
-        requestNotificationAuthorization()
         scheduleAutoScanTimer()
         // Safety watchdog: if isBusy gets stuck (e.g. from a crash), release it after 5 min
         Task { @MainActor [weak self] in
@@ -343,6 +342,10 @@ final class AppState: ObservableObject {
             guard let self else { return }
             await self.refreshAll(trigger: "bootstrap")
         }
+    }
+
+    func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
     func completeOnboarding() async {
@@ -1806,9 +1809,16 @@ final class AppState: ObservableObject {
         await runAutopilotNow()
         await loadBundles()
         let lowRiskBundles = bundles.filter { $0.risk == .low }
+        var appliedCount = 0
         for bundle in lowRiskBundles {
-            _ = await applyBundle(bundleID: bundle.id, override: nil)
+            let ok = await applyBundle(bundleID: bundle.id, override: nil)
+            if ok {
+                appliedCount += 1
+            }
         }
+        await loadBundles()
+        let remaining = bundles.count
+        sendScanCompletionNotification(applied: appliedCount, remaining: remaining)
     }
 
     // MARK: - Bundle actions
@@ -3469,8 +3479,31 @@ final class AppState: ObservableObject {
         return true
     }
 
-    private func requestNotificationAuthorization() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    func sendScanCompletionNotification(applied: Int, remaining: Int) {
+        let content = UNMutableNotificationContent()
+        content.sound = .default
+
+        if applied > 0 && remaining == 0 {
+            content.title = "文件整理完毕 ✓"
+            content.body = "已自动整理 \(applied) 个文件，收件箱清空了"
+        } else if applied > 0 && remaining > 0 {
+            content.title = "已自动整理 \(applied) 个文件"
+            content.body = "另有 \(remaining) 条建议需要你确认"
+        } else if remaining > 0 {
+            content.title = "发现 \(remaining) 条整理建议"
+            content.body = "点击打开 Tidy 查看"
+        } else {
+            return
+        }
+
+        content.userInfo = ["action": "openBundles"]
+
+        let request = UNNotificationRequest(
+            identifier: "tidy2.scan.complete.\(Date().timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
     }
 
     private func maybeAutoAnalyzeAfterHomeScan() async {
