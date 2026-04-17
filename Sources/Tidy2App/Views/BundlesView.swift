@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct BundlesView: View {
@@ -241,12 +242,24 @@ private struct BundleCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
+                if let first = bundle.samplePaths.first,
+                   let img = NSImage(contentsOfFile: first) {
+                    Image(nsImage: img)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 36, height: 36)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .clipped()
+                }
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text(bundle.title)
                         .font(.headline)
 
-                    Text("\(actionableCount) 个文件")
-                        .font(.subheadline.weight(.medium))
+                    HStack(spacing: 6) {
+                        Text("\(actionableCount) 个文件")
+                            .font(.subheadline.weight(.medium))
+                    }
 
                     Text(actionSummary)
                         .font(.subheadline)

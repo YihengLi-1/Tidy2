@@ -6,6 +6,8 @@ struct BundleDetailView: View {
     @EnvironmentObject private var appState: AppState
     let bundleID: String
 
+    @State private var previewURL: URL? = nil
+    @State private var previewNonce = 0
     @State private var renameTemplate: String = ""
     @State private var selectedActionKind: BundleActionKind = .rename
     @State private var selectedTargetPath: String = ""
@@ -62,6 +64,16 @@ struct BundleDetailView: View {
             }
         }
         .navigationTitle("整理建议详情")
+        .background(
+            QuickLookView(url: previewURL, nonce: previewNonce)
+                .frame(width: 0, height: 0)
+        )
+        .onDisappear {
+            if QLPreviewPanel.sharedPreviewPanelExists(),
+               let panel = QLPreviewPanel.shared() {
+                panel.orderOut(nil)
+            }
+        }
     }
 
     private func summaryBlock(_ bundle: DecisionBundle) -> some View {
@@ -108,6 +120,7 @@ struct BundleDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .keyboardShortcut(.return, modifiers: .command)
                 .disabled(isApplying)
 
                 Button("跳过这条") {
@@ -115,6 +128,7 @@ struct BundleDetailView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
+                .keyboardShortcut(.delete, modifiers: .command)
                 .disabled(isApplying)
 
                 if isApplying {
@@ -138,7 +152,7 @@ struct BundleDetailView: View {
             Text("涉及文件")
                 .font(.headline)
 
-            ForEach(bundle.filePaths, id: \.self) { path in
+            ForEach(Array(bundle.filePaths.enumerated()), id: \.element) { index, path in
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: actionIcon(for: selectedActionKind))
                         .foregroundStyle(actionColor(for: selectedActionKind))
@@ -146,10 +160,25 @@ struct BundleDetailView: View {
                         .padding(.top, 2)
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(URL(fileURLWithPath: path).lastPathComponent)
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+                        Button {
+                            openPreview(for: path)
+                        } label: {
+                            Text(URL(fileURLWithPath: path).lastPathComponent)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .underline()
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        .buttonStyle(.plain)
+                        .overlay(alignment: .topTrailing) {
+                            if index == 0 {
+                                Text("点击文件名预览")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .offset(x: 120)
+                            }
+                        }
 
                         Text("→ \(targetSummary(for: path, bundle: bundle))")
                             .font(.caption)
@@ -166,7 +195,7 @@ struct BundleDetailView: View {
                     Spacer()
 
                     Button("在 Finder 中显示") {
-                        previewFile(path: path)
+                        revealInFinder(path: path)
                     }
                     .buttonStyle(.borderless)
                     .font(.caption)
@@ -720,6 +749,52 @@ struct BundleDetailView: View {
     }
 }
 
+private struct QuickLookView: NSViewRepresentable {
+    let url: URL?
+    let nonce: Int
+
+    func makeNSView(context: Context) -> NSView {
+        NSView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        _ = nonce
+        guard let url else { return }
+        guard let panel = QLPreviewPanel.shared() else { return }
+        context.coordinator.url = url
+        panel.dataSource = context.coordinator
+        panel.delegate = context.coordinator
+        panel.currentPreviewItemIndex = 0
+        if panel.isVisible {
+            panel.reloadData()
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+            panel.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(url: url)
+    }
+
+    final class Coordinator: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
+        var url: URL?
+
+        init(url: URL?) {
+            self.url = url
+            super.init()
+        }
+
+        func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
+            url == nil ? 0 : 1
+        }
+
+        func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
+            url as NSURL?
+        }
+    }
+}
+
 private actor ApplyCompletionGate {
     private var completed = false
 
@@ -741,7 +816,16 @@ private extension DateFormatter {
 }
 
 private extension BundleDetailView {
-    func previewFile(path: String) {
+    func openPreview(for path: String) {
+        let url = URL(fileURLWithPath: path)
+        if previewURL == url {
+            previewNonce += 1
+        } else {
+            previewURL = url
+        }
+    }
+
+    func revealInFinder(path: String) {
         let url = URL(fileURLWithPath: path)
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
