@@ -25,6 +25,7 @@
 		49E0AF8A9AF207AFF136CFA7 /* AISettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53CE0BC8ADEF0540AC15D41 /* AISettingsView.swift */; };
 		4B57A036DD38266AE428F89E /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FB8728E64CE6D7B0A62FC46 /* Formatters.swift */; };
 		515102BDBC1363712CDE0E12 /* RuntimeLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE814FAAA78C3DA377308AD5 /* RuntimeLog.swift */; };
+		519C187B6CD1F5343CDC5226 /* MenuBarContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56DDCE14316BB04101D654F1 /* MenuBarContentView.swift */; };
 		52A193CECBD927FDE6A85887 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24DE138B8C7BBBA5EDB9FA19 /* SettingsView.swift */; };
 		5C8C75B7890A1D709F63B017 /* DebugBundleExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6A4C9CEC7E9CF7DA03EB1C0 /* DebugBundleExporter.swift */; };
 		5D1238BD8AE5C9C66C22D5C1 /* DigestService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D198944925D80EFE8AEC0357 /* DigestService.swift */; };
@@ -70,6 +71,7 @@
 		3E10E5B035BC8DE4C434722F /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		49542AE2C7669837161913C3 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		4A462E99E68B62BBD92F9358 /* DuplicatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatesView.swift; sourceTree = "<group>"; };
+		56DDCE14316BB04101D654F1 /* MenuBarContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContentView.swift; sourceTree = "<group>"; };
 		5B5F4BFB18CBABDCF15E9C3E /* FileHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileHash.swift; sourceTree = "<group>"; };
 		7F89F19515C5DCAF22BDD824 /* FileIntelligenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileIntelligenceService.swift; sourceTree = "<group>"; };
 		8BC2015188A6B0A89374EA4E /* BundlesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundlesView.swift; sourceTree = "<group>"; };
@@ -176,6 +178,7 @@
 				4A462E99E68B62BBD92F9358 /* DuplicatesView.swift */,
 				3E10E5B035BC8DE4C434722F /* EmptyStateView.swift */,
 				90A0F71043EFC494B2BE8AB8 /* InstallerCandidatesView.swift */,
+				56DDCE14316BB04101D654F1 /* MenuBarContentView.swift */,
 				3A606220FC7ECFE75AA7727B /* MetricsView.swift */,
 				057B312CE0B29861B928D252 /* OnboardingView.swift */,
 				E1FB641FD030ABD1AF381A44 /* QuarantineView.swift */,
@@ -293,6 +296,7 @@
 				4B57A036DD38266AE428F89E /* Formatters.swift in Sources */,
 				0E376E2495C835E8563B3DC6 /* Indexer.swift in Sources */,
 				2905FBD819C37D2F08BFEBAF /* InstallerCandidatesView.swift in Sources */,
+				519C187B6CD1F5343CDC5226 /* MenuBarContentView.swift in Sources */,
 				DB01AE06A5AC72FC638CC6A3 /* MetricsStore.swift in Sources */,
 				A659BA6D671A60206DDC90B5 /* MetricsView.swift in Sources */,
 				0CA84598CC2142D61083C70D /* OnboardingView.swift in Sources */,
