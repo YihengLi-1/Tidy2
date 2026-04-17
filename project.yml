@@ -1,0 +1,40 @@
+name: Tidy2
+options:
+  minimumXcodeGenVersion: 2.38.0
+  deploymentTarget:
+    macOS: "13.0"
+configs:
+  Debug: debug
+  Release: release
+targets:
+  Tidy2App:
+    type: application
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      - path: Sources/Tidy2App
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tidy2.beta
+        PRODUCT_NAME: Tidy2
+        SWIFT_VERSION: "5.10"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Tidy2
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright © 2026 Tidy2"
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 0.5.0-beta
+        CODE_SIGN_ENTITLEMENTS: Config/Tidy2.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        OTHER_LDFLAGS:
+          - "$(inherited)"
+          - "-lsqlite3"
+schemes:
+  Tidy2:
+    build:
+      targets:
+        Tidy2App: all
+    run:
+      config: Debug
+    archive:
+      config: Release
