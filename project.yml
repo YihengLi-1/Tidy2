@@ -13,6 +13,8 @@ targets:
     deploymentTarget: "13.0"
     sources:
       - path: Sources/Tidy2App
+    dependencies:
+      - sdk: QuickLookUI.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tidy2.beta

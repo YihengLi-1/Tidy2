@@ -44,6 +44,7 @@
 		C757B48FE9D124E3FFA60065 /* CleanupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21A7AD36AA7EF0D49BBE57E0 /* CleanupView.swift */; };
 		C7C28573252E25950B84597D /* VersionFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF2D25A8AF65FAE617EE86F2 /* VersionFilesView.swift */; };
 		DB01AE06A5AC72FC638CC6A3 /* MetricsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34A44DEC20F6A442401AD07C /* MetricsStore.swift */; };
+		DF2E2553BF0C14EB624CD76C /* QuickLookUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 939F6AB3C3222CC8A5038B15 /* QuickLookUI.framework */; };
 		E0C4C373C8CB32499785DDAD /* BundleBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A72013F29870C97A31BE5BA /* BundleBuilder.swift */; };
 		E7C2977468265ABC689C2BB3 /* ServiceContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 972E8DBBB914232758B2607C /* ServiceContainer.swift */; };
 		F1C209432A9766808CA46CF8 /* AIFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAF828BB1E0F6EE0E91846BE /* AIFilesView.swift */; };
@@ -80,6 +81,7 @@
 		8CBA8A1A706BEFEC7805203E /* FileIntelligence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileIntelligence.swift; sourceTree = "<group>"; };
 		90A0F71043EFC494B2BE8AB8 /* InstallerCandidatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallerCandidatesView.swift; sourceTree = "<group>"; };
 		910CE1C3CD191721DF4C03B8 /* BundleDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleDetailView.swift; sourceTree = "<group>"; };
+		939F6AB3C3222CC8A5038B15 /* QuickLookUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLookUI.framework; path = System/Library/Frameworks/QuickLookUI.framework; sourceTree = SDKROOT; };
 		972E8DBBB914232758B2607C /* ServiceContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceContainer.swift; sourceTree = "<group>"; };
 		9F35C2A1004C75FDD5BBCD7D /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		A0973EB55D6AFA72B35AC2BB /* Scanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scanner.swift; sourceTree = "<group>"; };
@@ -101,6 +103,17 @@
 		F9AF6610E00E4BC6E911F150 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		A1A3095B0115BFFCD63E715C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DF2E2553BF0C14EB624CD76C /* QuickLookUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
 		165A964DBC88E4B33032498E /* Tidy2App */ = {
 			isa = PBXGroup;
@@ -117,6 +130,14 @@
 			);
 			name = Tidy2App;
 			path = Sources/Tidy2App;
+			sourceTree = "<group>";
+		};
+		1B4D4BA844C5EF0C999F3DB1 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				939F6AB3C3222CC8A5038B15 /* QuickLookUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		3027D82CC566FB9EAEFC2FFF /* Services */ = {
@@ -154,6 +175,7 @@
 			isa = PBXGroup;
 			children = (
 				165A964DBC88E4B33032498E /* Tidy2App */,
+				1B4D4BA844C5EF0C999F3DB1 /* Frameworks */,
 				F29EC517F75BD800BBE397E2 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -219,6 +241,7 @@
 			buildPhases = (
 				9738038DDA71FD021C6128C4 /* Sources */,
 				2C883336E2B9089B0417D409 /* Resources */,
+				A1A3095B0115BFFCD63E715C /* Frameworks */,
 			);
 			buildRules = (
 			);
