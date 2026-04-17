@@ -1,0 +1,24 @@
+# Xcode
+build/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/
+DerivedData/
+.build/
+
+# dist - compiled app, don't commit
+dist/
+
+# macOS
+.DS_Store
+*.DS_Store
+
+# Logs & artifacts
+artifacts/
+*.log
+
+# Swift Package Manager
+.swiftpm/
+
+# Config secrets (if any)
+Config/*.plist.backup
