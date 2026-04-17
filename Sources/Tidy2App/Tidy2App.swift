@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UserNotifications
 
 enum AppSceneID {
     static let mainWindow = "main-window"
@@ -9,11 +10,13 @@ enum AppSceneID {
 struct Tidy2App: App {
     @StateObject private var launcher = AppLauncher()
     private let isBackgroundScan = CommandLine.arguments.contains("--background-scan")
+    private let notificationDelegate = NotificationDelegate()
 
     init() {
         if CommandLine.arguments.contains("--background-scan") {
             NSApp.setActivationPolicy(.prohibited)
         }
+        UNUserNotificationCenter.current().delegate = notificationDelegate
     }
 
     var body: some Scene {
@@ -21,22 +24,12 @@ struct Tidy2App: App {
             Group {
                 if isBackgroundScan {
                     if let appState = launcher.appState {
-                        EmptyView()
-                            .task {
-                                await appState.bootstrapIfNeeded()
-                                await appState.runBackgroundScanAndAutoApply()
-                                try? await Task.sleep(nanoseconds: 5_000_000_000)
-                                NSApp.terminate(nil)
-                            }
+                        BackgroundScanView(appState: appState, notificationDelegate: notificationDelegate)
                     } else {
                         EmptyView()
                     }
                 } else if let appState = launcher.appState {
-                    RootView()
-                        .environmentObject(appState)
-                        .task {
-                            await appState.bootstrapIfNeeded()
-                        }
+                    MainWindowRootView(appState: appState, notificationDelegate: notificationDelegate)
                 } else {
                     StartupErrorView(launcher: launcher)
                 }
@@ -75,6 +68,7 @@ private final class AppLauncher: ObservableObject {
         do {
             let container = try ServiceContainer()
             appState = AppState(services: container)
+            appState?.requestNotificationPermission()
             startupError = ""
             print("[Tidy2] launch")
         } catch {
@@ -128,6 +122,56 @@ private final class AppLauncher: ObservableObject {
                 .path
         }
         return "~/Library/Application Support/Tidy2/Logs/runtime.log"
+    }
+}
+
+private struct MainWindowRootView: View {
+    @ObservedObject var appState: AppState
+    let notificationDelegate: NotificationDelegate
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        RootView()
+            .environmentObject(appState)
+            .task {
+                configureNotificationDelegate()
+                await appState.bootstrapIfNeeded()
+            }
+    }
+
+    private func configureNotificationDelegate() {
+        notificationDelegate.openBundlesTab = {
+            NSApp.activate(ignoringOtherApps: true)
+            openWindow(id: AppSceneID.mainWindow)
+            appState.openBundlesTab()
+            if let window = NSApp.windows.first {
+                window.makeKeyAndOrderFront(nil)
+            }
+        }
+        UNUserNotificationCenter.current().delegate = notificationDelegate
+    }
+}
+
+private struct BackgroundScanView: View {
+    @ObservedObject var appState: AppState
+    let notificationDelegate: NotificationDelegate
+
+    var body: some View {
+        EmptyView()
+            .task {
+                notificationDelegate.openBundlesTab = {
+                    NSApp.activate(ignoringOtherApps: true)
+                    appState.openBundlesTab()
+                    if let window = NSApp.windows.first {
+                        window.makeKeyAndOrderFront(nil)
+                    }
+                }
+                UNUserNotificationCenter.current().delegate = notificationDelegate
+                await appState.bootstrapIfNeeded()
+                await appState.runBackgroundScanAndAutoApply()
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                NSApp.terminate(nil)
+            }
     }
 }
 
