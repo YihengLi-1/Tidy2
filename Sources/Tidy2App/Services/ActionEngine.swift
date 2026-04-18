@@ -178,6 +178,15 @@ final class ActionEngine: ActionEngineServiceProtocol {
             "[ActionEngine] action_resolved bundle_id=\(bundleID) action=\(action.actionKind.rawValue) has_target_bookmark=\(action.targetFolderBookmark != nil) has_rename_template=\((action.renameTemplate?.isEmpty == false))"
         )
 
+        if bundle.type == .crossDirectoryGroup {
+            guard action.actionKind == .move else {
+                let message = "跨目录整理建议只支持移动操作"
+                appendRuntimeLog("[ActionEngine] apply_blocked bundle_id=\(bundleID) reason=\(message)")
+                finishMessage = "Bundle failed: \(message)"
+                throw NSError(domain: "ActionEngine", code: 400, userInfo: [NSLocalizedDescriptionKey: message])
+            }
+        }
+
         let allowsHighRiskMove = override?.allowHighRiskMoveOverride == true
         if action.actionKind == .move && bundle.risk == .high && !allowsHighRiskMove {
             let message = "High-risk bundle is blocked from move. Use rename/quarantine instead."
