@@ -17,8 +17,8 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("归档设置") {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: TidySpacing.lg) {
+                    VStack(alignment: .leading, spacing: TidySpacing.xxs) {
                         Text("归档目标文件夹")
                             .font(.headline)
                         Text(appState.archiveRootPath.isEmpty ? "未设置" : appState.archiveRootPath)
@@ -209,8 +209,8 @@ struct SettingsView: View {
     @ViewBuilder
     private func accessRow(title: String, target: AccessTarget) -> some View {
         let item = appState.accessHealth[target]
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .firstTextBaseline, spacing: TidySpacing.lg) {
+            VStack(alignment: .leading, spacing: TidySpacing.xxs) {
                 Text(title)
                 if let path = item?.path, !path.isEmpty {
                     Text(path)

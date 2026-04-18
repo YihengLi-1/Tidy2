@@ -2,85 +2,125 @@ import SwiftUI
 
 struct ChangeLogView: View {
     @EnvironmentObject private var appState: AppState
+    @State private var displayLimit: Int = 50
+
+    private let pageSize: Int = 50
 
     var body: some View {
-        Group {
-            if appState.changeLogEntries.isEmpty {
-                EmptyStateView(
-                    icon: "clock.arrow.circlepath",
-                    title: "暂无操作记录",
-                    subtitle: "整理、清理、恢复等操作完成后会记录在这里"
-                )
-            } else {
-                List {
-                    ForEach(appState.changeLogEntries) { entry in
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: iconName(for: entry))
-                                .foregroundStyle(iconColor(for: entry))
-                                .frame(width: 22, height: 22)
-                                .padding(.top, 2)
+        bodyContent
+            .navigationTitle("操作记录")
+            .task {
+                await appState.loadChangeLog()
+            }
+            .onChange(of: appState.changeLogEntries.count) { _ in
+                displayLimit = pageSize
+            }
+    }
 
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(alignment: .top, spacing: 12) {
-                                    Text(entry.title)
-                                        .font(.headline)
+    @ViewBuilder
+    private var bodyContent: some View {
+        if appState.changeLogEntries.isEmpty {
+            EmptyStateView(
+                icon: "clock.arrow.circlepath",
+                title: "暂无操作记录",
+                subtitle: "整理、清理、恢复等操作完成后会记录在这里"
+            )
+        } else {
+            logList
+        }
+    }
 
-                                    Spacer()
+    private var logList: some View {
+        List {
+            // Count header when paginated
+            if appState.changeLogEntries.count > pageSize {
+                Text("显示 \(min(displayLimit, appState.changeLogEntries.count)) / \(appState.changeLogEntries.count) 条")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .listRowSeparator(.hidden)
+            }
 
-                                    Text(DateHelper.relativeShort(entry.createdAt))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+            ForEach(visibleEntries) { entry in
+                HStack(alignment: .top, spacing: TidySpacing.lg) {
+                    Image(systemName: iconName(for: entry))
+                        .foregroundStyle(iconColor(for: entry))
+                        .frame(width: 22, height: 22)
+                        .padding(.top, 2)
+
+                    VStack(alignment: .leading, spacing: TidySpacing.sm) {
+                        HStack(alignment: .top, spacing: TidySpacing.lg) {
+                            Text(entry.title)
+                                .font(.headline)
+
+                            Spacer()
+
+                            Text(DateHelper.relativeShort(entry.createdAt))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if !trimmedDetail(for: entry).isEmpty {
+                            Text(trimmedDetail(for: entry))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        HStack(spacing: TidySpacing.md) {
+                            if entry.isUndone {
+                                Text("已撤销")
+                                    .font(.caption2)
+                                    .foregroundStyle(.orange)
+                            }
+
+                            if !entry.isUndoable {
+                                Text("不可撤销")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            if entry.isUndoable && !entry.isUndone {
+                                Button("撤销") {
+                                    Task { await appState.undoLastOperation() }
                                 }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
 
-                                if !trimmedDetail(for: entry).isEmpty {
-                                    Text(trimmedDetail(for: entry))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                            if let path = entry.revealPath {
+                                Button("在访达中显示") {
+                                    appState.revealInFinder(path: path)
                                 }
-
-                                HStack(spacing: 10) {
-                                    if entry.isUndone {
-                                        Text("已撤销")
-                                            .font(.caption2)
-                                            .foregroundStyle(.orange)
-                                    }
-
-                                    if !entry.isUndoable {
-                                        Text("不可撤销")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-
-                                    if entry.isUndoable && !entry.isUndone {
-                                        Button("撤销") {
-                                            Task { await appState.undoLastOperation() }
-                                        }
-                                        .buttonStyle(.bordered)
-                                        .controlSize(.small)
-                                    }
-
-                                    if let path = entry.revealPath {
-                                        Button("在访达中显示") {
-                                            appState.revealInFinder(path: path)
-                                        }
-                                        .buttonStyle(.borderless)
-                                        .font(.caption)
-                                    }
-                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption)
                             }
                         }
-                        .padding(.vertical, 4)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("\(entry.title), \(DateHelper.relativeShort(entry.createdAt))")
                     }
                 }
-                .listStyle(.inset)
+                .padding(.vertical, TidySpacing.xxs)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(entry.title), \(DateHelper.relativeShort(entry.createdAt))")
+            }
+
+            // Show more button
+            if appState.changeLogEntries.count > displayLimit {
+                Button("显示更多（还有 \(appState.changeLogEntries.count - displayLimit) 条）") {
+                    displayLimit += pageSize
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .foregroundColor(.accentColor)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .listRowSeparator(.hidden)
+                .padding(.vertical, TidySpacing.sm)
             }
         }
-        .navigationTitle("操作记录")
-        .task {
-            await appState.loadChangeLog()
-        }
+        .listStyle(.inset)
+    }
+
+    // MARK: - Computed
+
+    private var visibleEntries: [ChangeLogEntry] {
+        Array(appState.changeLogEntries.prefix(displayLimit))
     }
 
     private func trimmedDetail(for entry: ChangeLogEntry) -> String {

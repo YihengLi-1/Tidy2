@@ -12,11 +12,11 @@ struct DigestView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: TidySpacing.xl) {
 
                 // ── Success banner (shown after auto-clean even when card disappears) ──
                 if let msg = autoCleanSuccessMessage {
-                    HStack(spacing: 8) {
+                    HStack(spacing: TidySpacing.sm) {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                         Text(msg)
@@ -25,13 +25,13 @@ struct DigestView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.green.opacity(0.10))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .background(Color.green.opacity(TidyOpacity.medium))
+                    .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
                 if let msg = scanCompleteMessage {
-                    HStack(spacing: 8) {
+                    HStack(spacing: TidySpacing.sm) {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                         Text(msg)
@@ -40,8 +40,8 @@ struct DigestView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.green.opacity(0.10))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .background(Color.green.opacity(TidyOpacity.medium))
+                    .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
@@ -50,7 +50,7 @@ struct DigestView: View {
                     Button {
                         Task { await appState.setupDefaultArchiveRoot() }
                     } label: {
-                        HStack(spacing: 10) {
+                        HStack(spacing: TidySpacing.md) {
                             Image(systemName: "folder.badge.plus")
                                 .foregroundColor(.accentColor)
                             VStack(alignment: .leading, spacing: 2) {
@@ -65,8 +65,8 @@ struct DigestView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .padding(14)
-                        .background(Color.blue.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .background(Color.blue.opacity(TidyOpacity.light))
+                        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
                     }
                     .buttonStyle(.plain)
                 }
@@ -115,7 +115,7 @@ struct DigestView: View {
                 // ── AI status line ────────────────────────────────────
                 aiStatusLine
             }
-            .padding(24)
+            .padding(TidySpacing.xxl)
         }
         .navigationTitle("首页")
         .confirmationDialog(
@@ -148,8 +148,8 @@ struct DigestView: View {
     // MARK: - Cards
 
     private var duplicateCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: TidySpacing.lg) {
+            HStack(spacing: TidySpacing.sm) {
                 Image(systemName: "doc.on.doc.fill")
                     .foregroundStyle(.orange)
                 Text("发现 \(appState.duplicateGroups.count) 组重复文件，可释放 \(SizeFormatter.string(from: appState.duplicatesTotalWastedBytes))")
@@ -159,7 +159,7 @@ struct DigestView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 10) {
+            HStack(spacing: TidySpacing.md) {
                 Button {
                     showAutoCleanConfirm = true
                 } label: {
@@ -182,15 +182,15 @@ struct DigestView: View {
                 .buttonStyle(.bordered)
             }
         }
-        .padding(20)
+        .padding(TidySpacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.orange.opacity(0.10))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .background(Color.orange.opacity(TidyOpacity.medium))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xl))
     }
 
     private var bundleCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: TidySpacing.lg) {
+            HStack(spacing: TidySpacing.sm) {
                 Image(systemName: "folder.badge.gearshape")
                     .foregroundStyle(.green)
                 Text("\(appState.bundles.count) 条整理建议等待确认")
@@ -205,15 +205,15 @@ struct DigestView: View {
             .buttonStyle(.borderedProminent)
             .tint(.green)
         }
-        .padding(20)
+        .padding(TidySpacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.green.opacity(0.10))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .background(Color.green.opacity(TidyOpacity.medium))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xl))
     }
 
     private var scanPromptCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: TidySpacing.lg) {
+            HStack(spacing: TidySpacing.sm) {
                 Image(systemName: "magnifyingglass.circle.fill")
                     .foregroundStyle(.blue)
                 Text("扫描一下你的文件，Tidy 会帮你找出可整理的内容")
@@ -224,15 +224,15 @@ struct DigestView: View {
             }
             .buttonStyle(.borderedProminent)
         }
-        .padding(20)
+        .padding(TidySpacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.blue.opacity(0.10))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .background(Color.blue.opacity(TidyOpacity.medium))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xl))
     }
 
     private var scanningCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: TidySpacing.md) {
+            HStack(spacing: TidySpacing.lg) {
                 ProgressView().controlSize(.small)
                 let detail = appState.scanProgressDetail.trimmingCharacters(in: .whitespacesAndNewlines)
                 Text(detail.isEmpty ? "正在扫描..." : detail)
@@ -249,14 +249,14 @@ struct DigestView: View {
                     .controlSize(.small)
             }
         }
-        .padding(20)
+        .padding(TidySpacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.blue.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .background(Color.blue.opacity(TidyOpacity.light))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xl))
     }
 
     private var cleanCard: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: TidySpacing.xl) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(.green)
@@ -269,13 +269,13 @@ struct DigestView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(40)
-        .background(Color.green.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(Color.green.opacity(TidyOpacity.ultraLight))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xxl))
     }
 
     private var largeFilesCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: TidySpacing.lg) {
+            HStack(spacing: TidySpacing.sm) {
                 Image(systemName: "externaldrive.badge.minus")
                     .foregroundStyle(.blue)
                 Text("发现 \(appState.largeFiles.count) 个大文件，共 \(SizeFormatter.string(from: appState.largeTotalBytes))")
@@ -290,15 +290,15 @@ struct DigestView: View {
             .buttonStyle(.borderedProminent)
             .tint(.blue)
         }
-        .padding(20)
+        .padding(TidySpacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.blue.opacity(0.10))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .background(Color.blue.opacity(TidyOpacity.medium))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xl))
     }
 
     private var casesCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: TidySpacing.lg) {
+            HStack(spacing: TidySpacing.sm) {
                 Image(systemName: "person.2.fill")
                     .foregroundStyle(.purple)
                 Text("识别到 \(appState.detectedCases.count) 个案例文件夹")
@@ -332,13 +332,13 @@ struct DigestView: View {
             .controlSize(.small)
         }
         .padding(16)
-        .background(Color.purple.opacity(0.07))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .background(Color.purple.opacity(TidyOpacity.ultraLight))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xl))
     }
 
     private var historyBacklogCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: TidySpacing.lg) {
+            HStack(spacing: TidySpacing.sm) {
                 Text("🗂")
                 Text("还没整理过历史积压？")
                     .font(.subheadline.weight(.semibold))
@@ -358,10 +358,10 @@ struct DigestView: View {
             .tint(.purple)
             .disabled(appState.isBusy)
         }
-        .padding(20)
+        .padding(TidySpacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.purple.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .background(Color.purple.opacity(TidyOpacity.light))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xl))
     }
 
     // MARK: - Footer
@@ -508,11 +508,11 @@ private struct ArchivePreviewView: View {
     @State private var isExecuting = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: TidySpacing.xl) {
             Text("整理预演")
                 .font(.title3.weight(.semibold))
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: TidySpacing.md) {
                 ForEach(rows) { row in
                     VStack(alignment: .leading, spacing: 3) {
                         Text(previewLineText(for: row))
@@ -537,7 +537,7 @@ private struct ArchivePreviewView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 12) {
+            HStack(spacing: TidySpacing.lg) {
                 Button(isExecuting ? "整理中..." : "确认整理") {
                     execute()
                 }
