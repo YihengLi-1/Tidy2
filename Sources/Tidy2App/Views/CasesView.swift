@@ -44,11 +44,28 @@ private struct CaseCard: View {
     @EnvironmentObject private var appState: AppState
     let cas: DetectedCase
     @State private var isOrganizing = false
+    @State private var resultMessage: String? = nil
+    @State private var resultIsError = false
 
     var body: some View {
         let missing = cas.missingDocs(for: appState.activeChecklist)
 
         VStack(alignment: .leading, spacing: 14) {
+            if let msg = resultMessage {
+                HStack(spacing: 8) {
+                    Image(systemName: resultIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                        .foregroundStyle(resultIsError ? Color.orange : Color.green)
+                    Text(msg)
+                        .font(.subheadline.weight(.medium))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(resultIsError ? Color.orange.opacity(0.10) : Color.green.opacity(0.10))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .transition(.opacity)
+            }
+
             HStack(alignment: .center, spacing: 10) {
                 Image(systemName: "person.crop.circle.fill")
                     .font(.title2)
@@ -66,6 +83,12 @@ private struct CaseCard: View {
                     Task {
                         await appState.organizeCaseFiles(cas)
                         isOrganizing = false
+                        let msg = appState.statusMessage
+                        if msg.hasPrefix("✓") {
+                            showResult(msg, isError: false)
+                        } else if !msg.isEmpty {
+                            showResult(msg, isError: true)
+                        }
                     }
                 }
                 .buttonStyle(.borderedProminent)
@@ -125,6 +148,19 @@ private struct CaseCard: View {
         .padding(16)
         .background(Color.gray.opacity(0.07))
         .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func showResult(_ msg: String, isError: Bool) {
+        resultMessage = msg
+        resultIsError = isError
+        Task {
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            await MainActor.run {
+                if resultMessage == msg {
+                    resultMessage = nil
+                }
+            }
+        }
     }
 
     private func chipRow(_ types: [DocType], color: Color) -> some View {
