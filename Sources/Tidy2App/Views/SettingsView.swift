@@ -11,7 +11,6 @@ struct SettingsView: View {
     @AppStorage("notify_ai_done") private var notifyAIDone = true
     @AppStorage("dailyScanEnabled") private var dailyScanEnabled = false
     @AppStorage("downloads_archive_time_window") private var downloadTimeWindow = "all"
-    @AppStorage("activeChecklistTemplateId") private var activeChecklistTemplateId = ChecklistTemplate.presets[0].id
 
     @State private var showResetConfirm = false
 
@@ -105,19 +104,6 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("案例清单模板") {
-                Picker("案例材料清单", selection: $activeChecklistTemplateId) {
-                    ForEach(ChecklistTemplate.presets) { template in
-                        Text(template.name).tag(template.id)
-                    }
-                }
-                .pickerStyle(.menu)
-
-                Text("切换模板后，案例页会按对应行业的标准材料清单显示缺失项。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
             Section("危险区域") {
                 Button(role: .destructive) {
                     showResetConfirm = true
@@ -142,7 +128,6 @@ struct SettingsView: View {
         .navigationTitle("偏好设置")
         .task {
             downloadTimeWindow = appState.archiveTimeWindow.rawValue
-            activeChecklistTemplateId = appState.activeChecklist.id
         }
         .confirmationDialog(
             "这将清除所有扫描记录和整理建议，不影响你的实际文件。确认重置？",
@@ -172,14 +157,6 @@ struct SettingsView: View {
         .onChange(of: appState.archiveTimeWindow) { newValue in
             if downloadTimeWindow != newValue.rawValue {
                 downloadTimeWindow = newValue.rawValue
-            }
-        }
-        .onChange(of: activeChecklistTemplateId) { newValue in
-            appState.setActiveChecklist(id: newValue)
-        }
-        .onChange(of: appState.activeChecklist) { newValue in
-            if activeChecklistTemplateId != newValue.id {
-                activeChecklistTemplateId = newValue.id
             }
         }
     }

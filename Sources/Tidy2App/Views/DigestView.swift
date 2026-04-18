@@ -57,6 +57,9 @@ struct DigestView: View {
                     if appState.bundles.count > 0 {
                         bundleCard
                     }
+                    if !appState.detectedCases.isEmpty {
+                        casesCard
+                    }
                     if appState.largeTotalBytes > 50_000_000 {
                         largeFilesCard
                     }
@@ -112,6 +115,7 @@ struct DigestView: View {
         }
         .task {
             await appState.loadLargeFiles()
+            await appState.loadDetectedCases()
         }
     }
 
@@ -226,23 +230,21 @@ struct DigestView: View {
     }
 
     private var cleanCard: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.secondary)
-            Text("文件整洁，无需操作")
+        VStack(spacing: 16) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(.green)
+            Text("一切井井有条")
+                .font(.title2.weight(.semibold))
+            Text("没有待处理的文件，Tidy 会在后台继续为你守候。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Spacer()
-            Button("重新扫描") {
-                appState.scanButtonTappedFromHome()
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+                .multilineTextAlignment(.center)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.gray.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .frame(maxWidth: .infinity)
+        .padding(40)
+        .background(Color.green.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private var largeFilesCard: some View {
@@ -265,6 +267,46 @@ struct DigestView: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.blue.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var casesCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "person.2.fill")
+                    .foregroundStyle(.purple)
+                Text("识别到 \(appState.detectedCases.count) 个案例文件夹")
+                    .font(.headline)
+            }
+
+            ForEach(Array(appState.detectedCases.prefix(2))) { cas in
+                HStack(spacing: 6) {
+                    Image(systemName: "person.crop.circle")
+                        .foregroundStyle(.secondary)
+                    Text(cas.name)
+                        .font(.subheadline)
+                    Spacer()
+                    Text("\(cas.files.count) 份文件")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    caseMissingBadge(for: cas)
+                }
+            }
+
+            if appState.detectedCases.count > 2 {
+                Text("还有 \(appState.detectedCases.count - 2) 个案例…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Button("查看所有案例") {
+                appState.pendingTab = .cases
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(16)
+        .background(Color.purple.opacity(0.07))
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
@@ -396,6 +438,20 @@ struct DigestView: View {
         return Int(digits)
     }
 
+    @ViewBuilder
+    private func caseMissingBadge(for cas: DetectedCase) -> some View {
+        let missing = cas.missingDocs(for: appState.activeChecklist)
+        if !missing.isEmpty {
+            Text("缺 \(missing.count) 份")
+                .font(.caption)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.orange)
+                .clipShape(Capsule())
+        }
+    }
+
     private var aiStatusLine: some View {
         Button {
             appState.openAIFiles()
@@ -415,7 +471,7 @@ struct DigestView: View {
         if appState.aiAnalyzedFilesCount > 0 {
             return "AI 已分析 \(appState.aiAnalyzedFilesCount) 个文件"
         }
-        return "AI 分析：点击侧边栏「AI 智能分析」开始"
+        return "AI 分析：在「更多工具」中开始"
     }
 }
 
