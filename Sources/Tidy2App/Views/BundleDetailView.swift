@@ -306,7 +306,7 @@ struct BundleDetailView: View {
                     .textFieldStyle(.roundedBorder)
 
                 HStack {
-                    Button("选择默认归档根目录") {
+                    Button("设置整理文件夹") {
                         chooseDefaultArchiveRoot()
                     }
 
@@ -364,7 +364,7 @@ struct BundleDetailView: View {
         guard !isApplying else { return }
 
         if selectedActionKind == .move && !hasMoveTarget(bundle: bundle) {
-            applyBannerText = "请先选择归档根目录。"
+            applyBannerText = "请先设置整理文件夹。"
             applyBannerIsError = true
             return
         }
@@ -504,7 +504,7 @@ struct BundleDetailView: View {
 
     private func moveDestinationPath(bundle: DecisionBundle, expanded: Bool) -> String {
         let root = moveRootPath(bundle: bundle)
-        let base = root.isEmpty ? "（请先选择归档根目录）" : root
+        let base = root.isEmpty ? "（请先设置整理文件夹）" : root
         let month = DateFormatter.bundleDetailMonth.string(from: Date())
         let full: String
         switch bundle.type {
@@ -606,7 +606,7 @@ struct BundleDetailView: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.message = "选择归档根目录"
+        panel.message = "选择整理文件夹"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         Task { await appState.saveDefaultArchiveRoot(url: url) }
     }

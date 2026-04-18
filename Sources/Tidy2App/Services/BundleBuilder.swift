@@ -443,8 +443,8 @@ final class BundleBuilder: BundleBuilderServiceProtocol {
                 EvidenceItem(
                     id: UUID().uuidString,
                     kind: .ruleMatch,
-                    title: "Archive root required",
-                    detail: "需要先选择归档根目录才能一键 move。",
+                    title: "需要整理文件夹",
+                    detail: "需要先设置整理文件夹才能执行移动。",
                     supportingFileIDs: nil,
                     supportingRuleID: nil
                 ),

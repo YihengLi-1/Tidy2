@@ -34,18 +34,51 @@ struct OnboardingView: View {
                     }
                 }
 
-                // Step 2 — Archive Root (optional but recommended)
+                // Step 2 — Archive Root (one-tap default)
                 stepCard(
                     number: "2",
-                    title: "选择归档根目录（推荐）",
-                    subtitle: "告诉 Tidy 把整理好的文件放到哪里。之后也可以在 Bundle 详情里设置。",
+                    title: "整理好的文件放哪里？",
+                    subtitle: "",
                     isRequired: false
                 ) {
-                    Button("选择归档根目录") {
-                        Task { await appState.reauthorizeArchiveRoot() }
-                    }
-                    .buttonStyle(.bordered)
-                    if !appState.archiveRootPath.isEmpty {
+                    if appState.archiveRootPath.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Button {
+                                Task { await appState.setupDefaultArchiveRoot() }
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "folder.badge.plus")
+                                        .font(.title3)
+                                        .foregroundColor(.accentColor)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("使用推荐位置")
+                                            .font(.subheadline.weight(.medium))
+                                        Text("~/Documents/Tidy Archive")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Text("推荐")
+                                        .font(.caption.weight(.medium))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 8).padding(.vertical, 3)
+                                        .background(Color.accentColor)
+                                        .clipShape(Capsule())
+                                }
+                                .padding(12)
+                                .background(Color.blue.opacity(0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                            }
+                            .buttonStyle(.plain)
+
+                            Button("自定义位置…") {
+                                Task { await appState.reauthorizeArchiveRoot() }
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                    } else {
                         statusRow(icon: "folder.fill", color: .accentColor,
                                   text: appState.archiveRootPath)
                     }
