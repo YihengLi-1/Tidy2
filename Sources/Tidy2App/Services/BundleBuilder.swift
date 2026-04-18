@@ -178,18 +178,22 @@ final class BundleBuilder: BundleBuilderServiceProtocol {
             mixedFiles = mixedCandidates.map(\.path)
         }
 
+        // Use the current week's start (not windowStart) so the bundle ID stays
+        // stable for the entire week. Using windowStart (today - N days) caused
+        // a new ID every day, defeating the applied/skipped state entirely.
+        let weekStableKey = DateFormatter.bundleWeekKey.string(from: DateHelper.startOfCurrentWeek(now: now))
         let pdfBundleID = scope == .downloads
             ? "\(scope.rawValue)-inbox30d-\(BundleType.weeklyDownloadsPDF.rawValue)"
-            : "\(scope.rawValue)-\(BundleType.weeklyDownloadsPDF.rawValue)-\(DateFormatter.bundleWeekKey.string(from: windowStart))"
+            : "\(scope.rawValue)-\(BundleType.weeklyDownloadsPDF.rawValue)-\(weekStableKey)"
         let screenshotBundleID = scope == .downloads
             ? "\(scope.rawValue)-inbox30d-\(BundleType.weeklyScreenshots.rawValue)"
-            : "\(scope.rawValue)-\(BundleType.weeklyScreenshots.rawValue)-\(DateFormatter.bundleWeekKey.string(from: windowStart))"
+            : "\(scope.rawValue)-\(BundleType.weeklyScreenshots.rawValue)-\(weekStableKey)"
         let mixedBundleID = scope == .downloads
             ? "\(scope.rawValue)-inbox30d-\(BundleType.weeklyDocuments.rawValue)"
-            : "\(scope.rawValue)-\(BundleType.weeklyDocuments.rawValue)-\(DateFormatter.bundleWeekKey.string(from: windowStart))"
+            : "\(scope.rawValue)-\(BundleType.weeklyDocuments.rawValue)-\(weekStableKey)"
         let installerBundleID = scope == .downloads
             ? "\(scope.rawValue)-inbox30d-\(BundleType.weeklyInstallers.rawValue)"
-            : "\(scope.rawValue)-\(BundleType.weeklyInstallers.rawValue)-\(DateFormatter.bundleWeekKey.string(from: windowStart))"
+            : "\(scope.rawValue)-\(BundleType.weeklyInstallers.rawValue)-\(weekStableKey)"
 
         var built: [DecisionBundle] = [
             buildBundle(
@@ -487,8 +491,13 @@ final class BundleBuilder: BundleBuilderServiceProtocol {
                 } else {
                     status = .pending
                 }
-            case .accepted, .applied, .pending:
-                // Any regenerated non-empty bundle should become actionable again.
+            case .accepted, .applied:
+                // Keep the user's decision for the rest of this week.
+                // Resetting applied→pending was the root cause of the infinite
+                // "bundle reappears after confirm" loop.
+                status = existing.status
+                snoozedUntil = existing.snoozedUntil
+            case .pending:
                 status = .pending
             }
         }
