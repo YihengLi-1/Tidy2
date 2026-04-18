@@ -125,13 +125,27 @@ struct QuarantineView: View {
     private var restoreToast: some View {
         Group {
             if let restoredName {
-                Text("已恢复：\(restoredName)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.green.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                    Text("已恢复：\(restoredName)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.green.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else if let purgeMsg = purgeStatusMessage {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                    Text(purgeMsg)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.green.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
     }
@@ -245,6 +259,12 @@ struct QuarantineView: View {
 
     private var totalCount: Int {
         max(0, activeCountSnapshot) + expiredCount
+    }
+
+    private var purgeStatusMessage: String? {
+        let text = appState.statusMessage
+        guard text.hasPrefix("已清理") || text.hasPrefix("已安全清理") else { return nil }
+        return text.isEmpty ? nil : text
     }
 
     private var restoredName: String? {

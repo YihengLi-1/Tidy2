@@ -53,6 +53,7 @@ struct VersionFilesView: View {
                 Button("重新检测") {
                     Task { await appState.loadVersionGroups() }
                 }
+                .disabled(appState.isBusy)
             }
         }
         .task {
