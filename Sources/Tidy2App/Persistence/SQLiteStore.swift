@@ -1654,11 +1654,18 @@ final class SQLiteStore: @unchecked Sendable {
         try syncOnQueue {
             guard limit > 0 else { return [] }
 
+            // Only return records for files that are still active (not yet archived/missing).
+            // JOIN with files table so that once a file is moved to archive its AI record
+            // stops appearing in suggestions immediately.
             let sql = """
-            SELECT file_path, category, summary, suggested_folder, keep_or_delete, reason, confidence, analyzed_at,
-                   extracted_name, document_date, doc_type
-            FROM file_ai
-            ORDER BY analyzed_at DESC
+            SELECT a.file_path, a.category, a.summary, a.suggested_folder,
+                   a.keep_or_delete, a.reason, a.confidence, a.analyzed_at,
+                   a.extracted_name, a.document_date, a.doc_type
+            FROM file_ai a
+            JOIN files f ON f.path = a.file_path
+            WHERE f.status = 'active'
+              AND f.root_scope != 'archived'
+            ORDER BY a.analyzed_at DESC
             LIMIT ?
             """
             var stmt: OpaquePointer?

@@ -757,6 +757,31 @@ final class AppState: ObservableObject {
         )
     }
 
+    /// Efficient bulk-move: moves all items without calling refreshAll per item,
+    /// then does a single refresh at the end. Prevents the 92x re-population bug.
+    @discardableResult
+    func bulkMoveToSuggestedFolders(_ items: [FileIntelligence]) async -> Int {
+        guard !items.isEmpty else { return 0 }
+        var movedCount = 0
+        for intel in items {
+            let ok = await moveFileToArchiveFolder(
+                sourcePath: intel.filePath,
+                destinationFolder: intel.suggestedFolder,
+                successMessage: nil,
+                suppressSuccessMessage: true,
+                suppressRefresh: true
+            )
+            if ok { movedCount += 1 }
+        }
+        // Single refresh after all moves
+        await refreshAll(trigger: "bulk-ai-move")
+        await refreshAIAnalysisState()
+        statusMessage = movedCount > 0
+            ? "已批量移动 \(movedCount)/\(items.count) 个文件"
+            : "没有文件被移动，请检查整理文件夹设置"
+        return movedCount
+    }
+
     @discardableResult
     func moveFileToFolder(path: String, destinationFolder: String) async -> Bool {
         await moveFileToArchiveFolder(
@@ -770,7 +795,8 @@ final class AppState: ObservableObject {
     private func moveFileToArchiveFolder(sourcePath: String,
                                          destinationFolder: String,
                                          successMessage: String?,
-                                         suppressSuccessMessage: Bool = false) async -> Bool {
+                                         suppressSuccessMessage: Bool = false,
+                                         suppressRefresh: Bool = false) async -> Bool {
         let sourceURL = URL(fileURLWithPath: sourcePath)
         let filename = sourceURL.lastPathComponent
 
@@ -874,11 +900,13 @@ final class AppState: ObservableObject {
             searchResultIntelMap.removeValue(forKey: sourcePath)
             pendingInboxCount = installerReviewCandidates.count
 
-            await loadChangeLog()
-            await loadDuplicateGroups()
-            await loadLargeFiles()
-            await loadOldInstallers()
-            await loadDetectedCases()
+            if !suppressRefresh {
+                await loadChangeLog()
+                await loadDuplicateGroups()
+                await loadLargeFiles()
+                await loadOldInstallers()
+                await loadDetectedCases()
+            }
 
             if !suppressSuccessMessage {
                 statusMessage = successMessage ?? "已移动：\(filename)"
