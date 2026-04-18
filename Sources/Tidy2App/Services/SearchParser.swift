@@ -9,6 +9,11 @@ enum SearchParser {
             filters.location = .downloads
         } else if lowered.contains("desktop") || lowered.contains("桌面") {
             filters.location = .desktop
+        } else if lowered.contains("archived")
+            || lowered.contains("archive")
+            || lowered.contains("已归档")
+            || lowered.contains("归档") {
+            filters.location = .archived
         }
 
         let knownTypes = ["pdf", "png", "jpg", "jpeg", "doc", "docx", "txt", "zip", "dmg", "pkg"]
@@ -43,7 +48,7 @@ enum SearchParser {
         let reserved = Set([
             "downloads", "desktop", "this", "week", "today", "last", "7", "days", "last7days",
             "30", "last30days", "large", "200mb", "200mb+", ">200mb", "大文件",
-            "下载", "桌面", "本周", "今天", "近7天", "近30天",
+            "下载", "桌面", "本周", "今天", "近7天", "近30天", "archived", "archive", "已归档", "归档",
             "pdf", "png", "jpg", "jpeg", "doc", "docx", "txt", "zip", "dmg", "pkg"
         ])
         filters.keywords = split.filter { !reserved.contains($0.lowercased()) }

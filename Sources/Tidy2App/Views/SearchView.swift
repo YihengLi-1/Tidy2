@@ -72,6 +72,11 @@ struct SearchView: View {
                 applyQuickSearch(.largeFiles200MB)
             }
             .buttonStyle(.bordered)
+
+            Button("搜索已整理文件") {
+                applyQuickSearch(.archivedFiles)
+            }
+            .buttonStyle(.bordered)
         }
     }
 
@@ -110,7 +115,7 @@ struct SearchView: View {
 
     @ViewBuilder
     private var resultsSection: some View {
-        if trimmedQuery.isEmpty {
+        if !hasSearchContext {
             EmptyStateView(
                 icon: "magnifyingglass",
                 title: "开始搜索",
@@ -140,9 +145,21 @@ struct SearchView: View {
                                         .foregroundStyle(.secondary)
                                         .lineLimit(2)
                                 }
-                                Text("\(SizeFormatter.string(from: item.sizeBytes)) · \(DateHelper.relativeShort(item.modifiedAt))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                HStack(spacing: 6) {
+                                    Text("\(SizeFormatter.string(from: item.sizeBytes)) · \(DateHelper.relativeShort(item.modifiedAt))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+
+                                    if isArchived(item) {
+                                        Text("已归档")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.blue.opacity(0.10))
+                                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                                    }
+                                }
 
                                 if let intel {
                                     aiMetadata(for: intel)
@@ -293,8 +310,12 @@ struct SearchView: View {
             appState.queryText = "large >200mb downloads"
             filters.location = .downloads
             filters.minSizeBytes = 200 * 1024 * 1024
+        case .archivedFiles:
+            appState.queryText = "已归档"
+            filters.location = .archived
         }
 
+        filters.archiveRootPath = appState.archiveRootPath
         appState.parsedFilters = filters
         lastParsedQuery = appState.queryText
         appState.executeSearch()
@@ -347,6 +368,23 @@ struct SearchView: View {
             .clipShape(Capsule())
     }
 
+    private func isArchived(_ item: SearchResultItem) -> Bool {
+        let root = appState.archiveRootPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !root.isEmpty else { return false }
+        let normalizedRoot = URL(fileURLWithPath: root).standardizedFileURL.path
+        let itemPath = URL(fileURLWithPath: item.path).standardizedFileURL.path
+        return itemPath == normalizedRoot || itemPath.hasPrefix(normalizedRoot + "/")
+    }
+
+    private var hasSearchContext: Bool {
+        !trimmedQuery.isEmpty
+            || appState.parsedFilters.location != nil
+            || appState.parsedFilters.fileType != nil
+            || appState.parsedFilters.dateFrom != nil
+            || appState.parsedFilters.dateTo != nil
+            || appState.parsedFilters.minSizeBytes != nil
+    }
+
     private var trimmedQuery: String {
         appState.queryText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -356,6 +394,7 @@ private enum QuickSearchPreset {
     case pdfLast7DaysDownloads
     case screenshotsLast30Days
     case largeFiles200MB
+    case archivedFiles
 }
 
 private extension String {

@@ -2126,7 +2126,8 @@ final class AppState: ObservableObject {
     func executeSearch() {
         Task {
             do {
-                let filters = parsedFilters
+                var filters = parsedFilters
+                filters.archiveRootPath = archiveRootPath
                 let startedAt = Date()
                 let payload = try await runBackground {
                     if !filters.keywords.isEmpty {

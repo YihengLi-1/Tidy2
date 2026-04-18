@@ -280,6 +280,7 @@ struct SearchFilters {
     var dateTo: Date?
     var minSizeBytes: Int64? = nil
     var keywords: [String] = []
+    var archiveRootPath: String = ""
 }
 
 struct SearchResultItem: Identifiable, Hashable {
