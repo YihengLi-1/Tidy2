@@ -70,6 +70,47 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("排除目录") {
+                Text("以下目录在扫描时会被完全跳过。git 仓库和开发构建目录已自动排除。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                ForEach(appState.userExcludedPaths, id: \.self) { path in
+                    HStack {
+                        Image(systemName: "folder.badge.minus")
+                            .foregroundStyle(.orange)
+                        Text(path)
+                            .font(.caption)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                        Button {
+                            appState.removeUserExcludedPath(path)
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundStyle(.red)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("移除排除目录 \(path)")
+                    }
+                }
+
+                Button {
+                    let panel = NSOpenPanel()
+                    panel.canChooseFiles = false
+                    panel.canChooseDirectories = true
+                    panel.allowsMultipleSelection = false
+                    panel.prompt = "排除此目录"
+                    panel.message = "选择一个不希望被扫描的目录"
+                    if panel.runModal() == .OK, let url = panel.url {
+                        appState.addUserExcludedPath(url.path)
+                    }
+                } label: {
+                    Label("添加排除目录", systemImage: "plus.circle")
+                }
+                .accessibilityLabel("添加要排除的目录")
+            }
+
             Section("隔离区") {
                 HStack {
                     Text("隔离保留天数")
