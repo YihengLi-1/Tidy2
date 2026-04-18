@@ -400,6 +400,10 @@ private struct AIDeleteSuggestionRow: View {
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.red.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 10))
+        .tidyFileRowAccessibility(name: fileName, value: "AI 建议删除")
+        .tidyFileContextMenu(path: item.filePath) {
+            if fileExists { perform(.trash) }
+        }
     }
 
     private enum Action { case trash, keep, dismiss }
@@ -474,6 +478,10 @@ private struct AIArchiveSuggestionRow: View {
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.gray.opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 10))
+        .tidyFileRowAccessibility(name: fileName, value: "建议归档到 \(item.suggestedFolder)")
+        .tidyFileContextMenu(path: item.filePath) {
+            if fileExists { move() }
+        }
     }
 
     private func move() {
@@ -552,6 +560,8 @@ private struct AIGeneralSuggestionRow: View {
         .padding(12)
         .background(Color.gray.opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 10))
+        .tidyFileRowAccessibility(name: fileName, value: "\(item.category), AI \(item.keepOrDelete == .keep ? "建议保留" : item.keepOrDelete == .delete ? "建议删除" : "不确定")")
+        .tidyFileContextMenu(path: item.filePath)
     }
 
     private var fileName: String { URL(fileURLWithPath: item.filePath).lastPathComponent }

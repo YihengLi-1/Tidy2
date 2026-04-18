@@ -243,6 +243,7 @@ private struct DuplicateGroupRow: View {
                                 .controlSize(.small)
                                 .foregroundStyle(.red)
                                 .accessibilityLabel("将 \(URL(fileURLWithPath: file.path).lastPathComponent) 移到废纸篓")
+                                .keyboardShortcut(.delete, modifiers: .command)
                             }
                         }
                         .padding(.horizontal, 4)

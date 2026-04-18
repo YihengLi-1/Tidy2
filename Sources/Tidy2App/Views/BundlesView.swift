@@ -301,12 +301,15 @@ private struct BundleCard: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .disabled(isDisabled)
+                    .accessibilityLabel("跳过整理建议：\(bundle.title)")
 
                 Button("确认", action: onConfirm)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
                     .tint(.green)
                     .disabled(isDisabled)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .accessibilityLabel("确认执行整理建议：\(bundle.title)")
             }
         }
         .padding(14)
