@@ -2547,6 +2547,15 @@ final class AppState: ObservableObject {
         if databaseNeedsReset {
             return
         }
+        // Reconcile: any file physically inside the archive root must be marked
+        // archived in the DB, regardless of how it got there. This prevents
+        // moved files from re-appearing in bundles or AI suggestions.
+        if !archiveRootPath.isEmpty {
+            let root = archiveRootPath
+            try? await runBackground {
+                try self.services.store.reconcileArchivedByPath(archiveRootPath: root)
+            }
+        }
         await ensureDefaultSettings()
         await refreshAccessHealth()
         await runSilentMaintenanceIfDue(force: false)

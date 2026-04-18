@@ -1807,6 +1807,30 @@ final class SQLiteStore: @unchecked Sendable {
         }
     }
 
+    /// Mark any files that are physically inside the archive root but still
+    /// recorded as active/non-archived in the DB. Returns the number of rows fixed.
+    @discardableResult
+    func reconcileArchivedByPath(archiveRootPath: String) throws -> Int {
+        guard !archiveRootPath.isEmpty else { return 0 }
+        let prefix = archiveRootPath.hasSuffix("/") ? archiveRootPath : archiveRootPath + "/"
+        return try syncOnQueue {
+            let sql = """
+            UPDATE files
+            SET root_scope = 'archived',
+                status = 'archived'
+            WHERE (status != 'archived' OR root_scope != 'archived')
+              AND (path = ? OR path LIKE ?)
+            """
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            try prepare(sql: sql, stmt: &stmt)
+            try bindText(archiveRootPath, index: 1, stmt: stmt)
+            try bindText(prefix + "%", index: 2, stmt: stmt)
+            try stepDone(stmt)
+            return Int(sqlite3_changes(db))
+        }
+    }
+
     func countAnalyzedFiles() throws -> Int {
         try syncOnQueue {
             let sql = """
