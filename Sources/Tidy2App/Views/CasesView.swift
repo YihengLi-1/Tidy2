@@ -46,6 +46,8 @@ private struct CaseCard: View {
     @State private var isOrganizing = false
 
     var body: some View {
+        let missing = cas.missingDocs(for: appState.activeChecklist)
+
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 10) {
                 Image(systemName: "person.crop.circle.fill")
@@ -82,12 +84,12 @@ private struct CaseCard: View {
                 }
             }
 
-            if !cas.missingImmigrationDocs.isEmpty {
+            if !missing.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Label("常见移民材料中缺少", systemImage: "exclamationmark.circle")
+                    Label("「\(appState.activeChecklist.name)」清单中缺少", systemImage: "exclamationmark.circle")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.orange)
-                    chipRow(cas.missingImmigrationDocs, color: .orange)
+                    chipRow(missing, color: .orange)
                 }
             }
 

@@ -143,6 +143,7 @@ final class AppState: ObservableObject {
     @Published var aiAnalyzedFilesCount: Int = 0
     @Published var aiIntelligenceItems: [FileIntelligence] = []
     @Published var detectedCases: [DetectedCase] = []
+    @Published var activeChecklist: ChecklistTemplate = ChecklistTemplate.presets[0]
     @Published var isAIAnalyzing: Bool = false
     @Published var totalFilesScanned: Int = 0
     @Published var duplicateGroups: [DuplicateGroup] = []
@@ -244,11 +245,15 @@ final class AppState: ObservableObject {
     private let lastDownloadsIndexStatsKey = "last_downloads_index_stats_json"
     private let pendingInboxDismissedKey = "pending_inbox_dismissed_json"
     private let lastAIAnalysisAtKey = "last_ai_analysis_at"
+    private let activeChecklistTemplateKey = "activeChecklistTemplateId"
 
     private var autoScanTimer: Timer?
 
     init(services: ServiceContainer) {
         self.services = services
+        let savedChecklistID = UserDefaults.standard.string(forKey: activeChecklistTemplateKey)
+        self.activeChecklist = ChecklistTemplate.presets.first(where: { $0.id == savedChecklistID })
+            ?? ChecklistTemplate.presets[0]
         services.indexer.onProgress = { [weak self] scope, count in
             Task { @MainActor [weak self] in
                 guard let self, self.isBusy else { return }
@@ -413,6 +418,12 @@ final class AppState: ObservableObject {
 
     func openCases() {
         pendingTab = .cases
+    }
+
+    func setActiveChecklist(id: String) {
+        let template = ChecklistTemplate.presets.first(where: { $0.id == id }) ?? ChecklistTemplate.presets[0]
+        activeChecklist = template
+        UserDefaults.standard.set(template.id, forKey: activeChecklistTemplateKey)
     }
 
     func openVersionFiles() {
@@ -4387,8 +4398,8 @@ struct DetectedCase: Identifiable, Hashable {
         Set(files.map(\.docType))
     }
 
-    var missingImmigrationDocs: [DocType] {
-        DocType.immigrationChecklist.filter { !presentTypes.contains($0) }
+    func missingDocs(for template: ChecklistTemplate) -> [DocType] {
+        template.docTypes.filter { !presentTypes.contains($0) }
     }
 
     var totalSize: Int64 {
