@@ -47,7 +47,7 @@ final class BundleBuilder: BundleBuilderServiceProtocol {
                 id: "downloads-weeklyDownloadsPDF-\(weekKey)",
                 type: .weeklyDownloadsPDF,
                 scope: .downloads,
-                title: "本周下载的 PDF（Downloads）",
+                title: "本周下载的 PDF（下载文件夹）",
                 summary: "发现 18 个本周下载的 PDF。",
                 filePaths: [
                     "/Users/me/Downloads/lecture_notes_week7.pdf",
@@ -55,7 +55,7 @@ final class BundleBuilder: BundleBuilderServiceProtocol {
                     "/Users/me/Downloads/reading_list.pdf"
                 ],
                 fallbackRisk: .medium,
-                timeWindowLabel: "this week",
+                timeWindowLabel: "本周",
                 hasArchiveRoot: hasArchiveRoot,
                 rules: rules,
                 now: now
@@ -72,7 +72,7 @@ final class BundleBuilder: BundleBuilderServiceProtocol {
                     "/Users/me/Downloads/Screenshot 2026-02-18 at 14.09.52.png"
                 ],
                 fallbackRisk: .low,
-                timeWindowLabel: "this week",
+                timeWindowLabel: "本周",
                 hasArchiveRoot: hasArchiveRoot,
                 rules: rules,
                 now: now
@@ -81,14 +81,14 @@ final class BundleBuilder: BundleBuilderServiceProtocol {
                 id: "downloads-weeklyInstallers-\(weekKey)",
                 type: .weeklyInstallers,
                 scope: .downloads,
-                title: "本周安装包（Downloads）",
+                title: "本周安装包（下载文件夹）",
                 summary: "发现 9 个安装包候选。",
                 filePaths: [
                     "/Users/me/Downloads/MyApp.dmg",
                     "/Users/me/Downloads/Setup.pkg"
                 ],
                 fallbackRisk: .low,
-                timeWindowLabel: "this week",
+                timeWindowLabel: "本周",
                 hasArchiveRoot: hasArchiveRoot,
                 rules: rules,
                 now: now
@@ -105,7 +105,7 @@ final class BundleBuilder: BundleBuilderServiceProtocol {
                     "/Users/me/Downloads/outline.pdf"
                 ],
                 fallbackRisk: .medium,
-                timeWindowLabel: "this week",
+                timeWindowLabel: "本周",
                 hasArchiveRoot: hasArchiveRoot,
                 rules: rules,
                 now: now
@@ -132,26 +132,26 @@ final class BundleBuilder: BundleBuilderServiceProtocol {
             switch mode {
             case .days7:
                 windowStart = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? DateHelper.startOfCurrentWeek(now: now)
-                timeWindowLabel = "last 7 days"
-                titlePrefix = "Downloads Inbox (last 7 days)"
+                timeWindowLabel = "最近 7 天"
+                titlePrefix = "下载文件夹 · 最近 7 天"
             case .days30:
                 windowStart = Calendar.current.date(byAdding: .day, value: -30, to: now) ?? DateHelper.startOfCurrentWeek(now: now)
-                timeWindowLabel = "last 30 days"
-                titlePrefix = "Downloads Inbox (last 30 days)"
+                timeWindowLabel = "最近 30 天"
+                titlePrefix = "下载文件夹 · 最近 30 天"
             case .all:
                 windowStart = Date.distantPast
-                timeWindowLabel = "all files"
-                titlePrefix = "Downloads Inbox (all)"
+                timeWindowLabel = "全部文件"
+                titlePrefix = "下载文件夹 · 全部"
                 includeInstallersInInbox = true
             }
         } else if scope == .documents {
             windowStart = Calendar.current.date(byAdding: .day, value: -30, to: now) ?? DateHelper.startOfCurrentWeek(now: now)
-            timeWindowLabel = "last 30 days"
-            titlePrefix = "Documents Inbox (last 30 days)"
+            timeWindowLabel = "最近 30 天"
+            titlePrefix = "文稿文件夹 · 最近 30 天"
         } else {
             windowStart = DateHelper.startOfCurrentWeek(now: now)
-            timeWindowLabel = "this week"
-            titlePrefix = "Desktop Inbox (this week)"
+            timeWindowLabel = "本周"
+            titlePrefix = "桌面 · 本周"
         }
 
         let files = allScopeFiles
@@ -196,7 +196,7 @@ final class BundleBuilder: BundleBuilderServiceProtocol {
                 id: pdfBundleID,
                 type: .weeklyDownloadsPDF,
                 scope: scope,
-                title: "\(titlePrefix) · PDFs",
+                title: "\(titlePrefix) · PDF 文件",
                 summary: "Found \(pdfFiles.count) PDF files in \(timeWindowLabel).",
                 filePaths: pdfFiles,
                 fallbackRisk: .medium,
@@ -209,7 +209,7 @@ final class BundleBuilder: BundleBuilderServiceProtocol {
                 id: screenshotBundleID,
                 type: .weeklyScreenshots,
                 scope: scope,
-                title: "\(titlePrefix) · Screenshots",
+                title: "\(titlePrefix) · 截图",
                 summary: "Found \(imageFiles.count) image files in \(timeWindowLabel).",
                 filePaths: imageFiles,
                 fallbackRisk: .low,
@@ -222,7 +222,7 @@ final class BundleBuilder: BundleBuilderServiceProtocol {
                 id: mixedBundleID,
                 type: .weeklyDocuments,
                 scope: scope,
-                title: "\(titlePrefix) · Inbox",
+                title: "\(titlePrefix) · 杂项文件",
                 summary: "Found \(mixedFiles.count) other files in \(timeWindowLabel).",
                 filePaths: mixedFiles,
                 fallbackRisk: .medium,
@@ -239,7 +239,7 @@ final class BundleBuilder: BundleBuilderServiceProtocol {
                     id: installerBundleID,
                     type: .weeklyInstallers,
                     scope: scope,
-                    title: "\(titlePrefix) · Installers",
+                    title: "\(titlePrefix) · 安装包",
                     summary: "Found \(installerFiles.count) installer files in \(timeWindowLabel).",
                     filePaths: installerFiles,
                     fallbackRisk: .low,

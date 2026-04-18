@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DigestView: View {
     @EnvironmentObject private var appState: AppState
+    @AppStorage("hasRunFullHistoryScan") private var hasRunFullHistoryScan = false
 
     @State private var showAutoCleanConfirm = false
     @State private var isAutoCleaningDuplicates = false
@@ -66,6 +67,10 @@ struct DigestView: View {
                         autoCleanSuccessMessage == nil {
                         cleanCard
                     }
+                }
+
+                if !hasRunFullHistoryScan && appState.totalFilesScanned > 0 {
+                    historyBacklogCard
                 }
 
                 // ── Footer stats line ─────────────────────────────────
@@ -260,6 +265,34 @@ struct DigestView: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.blue.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var historyBacklogCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text("🗂")
+                Text("还没整理过历史积压？")
+                    .font(.subheadline.weight(.semibold))
+            }
+
+            Text("扫描全部下载文件夹，发现多年来积压的 PDF、截图和安装包")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button("扫一次历史文件 →") {
+                hasRunFullHistoryScan = true
+                Task {
+                    await appState.runFullHistoryScan()
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.purple)
+            .disabled(appState.isBusy)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.purple.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 

@@ -1020,10 +1020,27 @@ final class AppState: ObservableObject {
                     value: window.rawValue
                 )
             }
+            UserDefaults.standard.set(window.rawValue, forKey: archiveTimeWindowSettingKey)
             archiveTimeWindow = window
             statusMessage = "时间范围：\(window.title)"
             await runIncrementalResyncForAuthorizedScopes(reason: "archive-time-window")
             await refreshAll(trigger: "archive-time-window")
+        } catch {
+            handleError(error)
+        }
+    }
+
+    func runFullHistoryScan() async {
+        do {
+            try await runBackground {
+                try self.services.store.setStringSetting(
+                    key: self.archiveTimeWindowSettingKey,
+                    value: ArchiveTimeWindow.all.rawValue
+                )
+            }
+            UserDefaults.standard.set(ArchiveTimeWindow.all.rawValue, forKey: archiveTimeWindowSettingKey)
+            archiveTimeWindow = .all
+            await runAutopilotNow()
         } catch {
             handleError(error)
         }

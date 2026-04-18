@@ -42,11 +42,11 @@ enum ArchiveTimeWindow: String, Codable, CaseIterable {
     var title: String {
         switch self {
         case .days7:
-            return "7天"
+            return "最近 7 天"
         case .days30:
-            return "30天"
+            return "最近 30 天"
         case .all:
-            return "全部"
+            return "全部历史文件"
         }
     }
 }
