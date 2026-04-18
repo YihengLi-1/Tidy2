@@ -645,7 +645,7 @@ final class AppState: ObservableObject {
 
     func organizeCaseFiles(_ cas: DetectedCase) async {
         guard !archiveRootPath.isEmpty else {
-            statusMessage = "请先设置归档根目录"
+            statusMessage = "请先设置整理文件夹"
             return
         }
 
@@ -759,7 +759,7 @@ final class AppState: ObservableObject {
 
         guard let archiveRoot = try? services.accessManager.resolveArchiveRootAccess(),
               !archiveRootPath.isEmpty else {
-            statusMessage = "请先设置归档根目录"
+            statusMessage = "请先设置整理文件夹"
             return false
         }
 
@@ -1261,11 +1261,11 @@ final class AppState: ObservableObject {
         let hasMoveWork = recommendedPlanBuckets.contains { $0.actionKind == .move && $0.actionableFiles > 0 }
         if hasMoveWork && !hasDefaultArchiveRoot() {
             guard let selected = chooseFolder(
-                message: "请选择归档根目录",
+                message: "请选择整理文件夹",
                 prompt: "选择文件夹",
                 defaultURL: FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
             ) else {
-                statusMessage = "归档已取消，请先设置归档目标文件夹"
+                statusMessage = "整理已取消，请先设置整理文件夹"
                 return
             }
             await saveDefaultArchiveRoot(url: selected)
@@ -1913,8 +1913,8 @@ final class AppState: ObservableObject {
 
     func reauthorizeArchiveRoot() async {
         guard let selected = chooseFolder(
-            message: "重新授权归档根目录",
-            prompt: "选择归档根目录",
+            message: "选择整理文件夹",
+            prompt: "使用此文件夹",
             defaultURL: nil
         ) else { return }
 
@@ -1955,6 +1955,26 @@ final class AppState: ObservableObject {
             withIntermediateDirectories: true
         )
         try data.write(to: destination)
+    }
+
+    /// Creates ~/Documents/Tidy Archive/ and activates it — no user interaction needed.
+    func setupDefaultArchiveRoot() async {
+        let defaultRoot = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/Tidy Archive", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: defaultRoot, withIntermediateDirectories: true)
+        } catch {
+            handleError(error)
+            return
+        }
+        // saveDefaultArchiveRoot uses a bookmark; for the default path we go through
+        // the open panel pre-filled to that location so the security scope is granted.
+        guard let selected = chooseFolder(
+            message: "确认整理文件夹位置",
+            prompt: "使用此文件夹",
+            defaultURL: defaultRoot
+        ) else { return }
+        await saveDefaultArchiveRoot(url: selected)
     }
 
     func saveDefaultArchiveRoot(url: URL) async {
@@ -4053,7 +4073,7 @@ final class AppState: ObservableObject {
         case .reauthorizeDownloads:
             return "请到首页的健康提示中重新授权下载文件夹"
         case .reauthorizeArchiveRoot:
-            return "请到首页的健康提示中重新授权归档根目录"
+            return "请到首页的健康提示中重新选择整理文件夹"
         case .enableDesktop:
             return "请到首页的健康提示中启用桌面监控"
         case .enableDocuments:

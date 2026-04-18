@@ -45,6 +45,32 @@ struct DigestView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
+                // ── Archive folder nudge ──────────────────────────────
+                if appState.archiveRootPath.isEmpty && appState.totalFilesScanned > 0 {
+                    Button {
+                        Task { await appState.setupDefaultArchiveRoot() }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "folder.badge.plus")
+                                .foregroundColor(.accentColor)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("设置整理文件夹，即可执行整理建议")
+                                    .font(.subheadline.weight(.medium))
+                                Text("一键使用默认位置 ~/Documents/Tidy Archive")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(14)
+                        .background(Color.blue.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 // ── Action Cards ──────────────────────────────────────
                 if appState.isBusy {
                     scanningCard

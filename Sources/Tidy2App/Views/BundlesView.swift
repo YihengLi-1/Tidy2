@@ -344,7 +344,7 @@ private struct BundleCard: View {
     }
 
     private var destinationPath: String {
-        let root = archiveRootPath.isEmpty ? "（请先选择归档根目录）" : archiveRootPath
+        let root = archiveRootPath.isEmpty ? "（请先设置整理文件夹）" : archiveRootPath
         let month = DateFormatter.bundleMonth.string(from: Date())
         switch bundle.type {
         case .weeklyDownloadsPDF:
