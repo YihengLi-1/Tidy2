@@ -106,6 +106,51 @@ struct AccessHealthItem: Hashable {
     let path: String?
 }
 
+struct ChecklistTemplate: Identifiable, Codable, Hashable {
+    let id: String
+    var name: String
+    var docTypes: [DocType]
+    var isPreset: Bool
+
+    static let presets: [ChecklistTemplate] = [
+        ChecklistTemplate(
+            id: "immigration",
+            name: "移民申请",
+            docTypes: [.passport, .birthCert, .nationalID, .policeClearance,
+                       .employmentLetter, .bankStatement, .addressProof, .marriageCert],
+            isPreset: true
+        ),
+        ChecklistTemplate(
+            id: "hr_onboarding",
+            name: "HR 入职",
+            docTypes: [.nationalID, .resume, .offerLetter, .bankStatement,
+                       .academicCred, .referenceLetterDoc],
+            isPreset: true
+        ),
+        ChecklistTemplate(
+            id: "real_estate",
+            name: "房产交易",
+            docTypes: [.nationalID, .bankStatement, .taxRecord,
+                       .propertyDoc, .contract, .addressProof],
+            isPreset: true
+        ),
+        ChecklistTemplate(
+            id: "finance_audit",
+            name: "财务审计",
+            docTypes: [.invoice, .receipt, .bankStatement,
+                       .taxRecord, .contract, .payStub],
+            isPreset: true
+        ),
+        ChecklistTemplate(
+            id: "medical",
+            name: "医疗档案",
+            docTypes: [.nationalID, .insurance, .medicalRecord,
+                       .prescription, .addressProof],
+            isPreset: true
+        )
+    ]
+}
+
 // MARK: - Version file groups
 
 struct VersionFileGroup: Identifiable {

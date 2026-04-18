@@ -1,4 +1,6 @@
+import AppKit
 import Foundation
+import ImageIO
 import Security
 #if canImport(PDFKit)
 import PDFKit
@@ -108,7 +110,35 @@ actor FileIntelligenceService {
     // MARK: Claude (Anthropic)
     private struct ClaudeRequest: Encodable {
         struct Message: Encodable {
-            struct Content: Encodable { let type: String; let text: String }
+            struct Content: Encodable {
+                struct Source: Encodable {
+                    let type: String
+                    let mediaType: String
+                    let data: String
+
+                    enum CodingKeys: String, CodingKey {
+                        case type
+                        case mediaType = "media_type"
+                        case data
+                    }
+                }
+
+                let type: String
+                let text: String?
+                let source: Source?
+
+                static func text(_ value: String) -> Content {
+                    Content(type: "text", text: value, source: nil)
+                }
+
+                static func image(data: String, mediaType: String) -> Content {
+                    Content(
+                        type: "image",
+                        text: nil,
+                        source: Source(type: "base64", mediaType: mediaType, data: data)
+                    )
+                }
+            }
             let role: String
             let content: [Content]
         }
@@ -309,11 +339,18 @@ actor FileIntelligenceService {
         guard !key.isEmpty else { return nil }
 
         let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
+        let ext = URL(fileURLWithPath: filePath).pathExtension
+        let imageData = extractImageData(filePath: filePath, ext: ext)
+        var content: [ClaudeRequest.Message.Content] = []
+        if let imageData {
+            content.append(.image(data: imageData.data, mediaType: imageData.mediaType))
+        }
+        content.append(.text(userPrompt))
         let body = ClaudeRequest(
             model: "claude-haiku-4-5-20251001",
             max_tokens: 200,
             system: systemPrompt,
-            messages: [.init(role: "user", content: [.init(type: "text", text: userPrompt)])]
+            messages: [.init(role: "user", content: content)]
         )
 
         var req = URLRequest(url: endpoint)
@@ -501,6 +538,96 @@ actor FileIntelligenceService {
 #else
         return nil
 #endif
+    }
+
+    private func extractImageData(filePath: String, ext: String) -> (data: String, mediaType: String)? {
+        let lower = ext.lowercased()
+
+        if ["jpg", "jpeg", "png", "heic", "heif", "tiff", "bmp", "gif"].contains(lower) {
+            guard let image = NSImage(contentsOfFile: filePath),
+                  let tiff = image.tiffRepresentation,
+                  let bitmap = NSBitmapImageRep(data: tiff),
+                  let png = bitmap.representation(using: .png, properties: [:]) else {
+                return nil
+            }
+            let resized = resizeImageDataIfNeeded(png, maxDimension: 1568)
+            return (data: resized.base64EncodedString(), mediaType: "image/png")
+        }
+
+        if lower == "pdf" {
+#if canImport(PDFKit)
+            guard let doc = PDFDocument(url: URL(fileURLWithPath: filePath)),
+                  let page = doc.page(at: 0) else {
+                return nil
+            }
+            let pageRect = page.bounds(for: .mediaBox)
+            let longestSide = max(pageRect.width, pageRect.height)
+            guard longestSide > 0 else { return nil }
+            let scale = min(1200.0 / longestSide, 2.0)
+            let renderSize = CGSize(width: pageRect.width * scale, height: pageRect.height * scale)
+            let image = NSImage(size: renderSize)
+            image.lockFocus()
+            if let ctx = NSGraphicsContext.current?.cgContext {
+                ctx.setFillColor(NSColor.white.cgColor)
+                ctx.fill(CGRect(origin: .zero, size: renderSize))
+                ctx.scaleBy(x: scale, y: scale)
+                page.draw(with: .mediaBox, to: ctx)
+            }
+            image.unlockFocus()
+            guard let tiff = image.tiffRepresentation,
+                  let bitmap = NSBitmapImageRep(data: tiff),
+                  let png = bitmap.representation(using: .png, properties: [:]) else {
+                return nil
+            }
+            return (data: png.base64EncodedString(), mediaType: "image/png")
+#else
+            return nil
+#endif
+        }
+
+        return nil
+    }
+
+    private func resizeImageDataIfNeeded(_ data: Data, maxDimension: CGFloat) -> Data {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            return data
+        }
+
+        let width = CGFloat(cgImage.width)
+        let height = CGFloat(cgImage.height)
+        guard max(width, height) > maxDimension else { return data }
+
+        let scale = maxDimension / max(width, height)
+        let newSize = CGSize(width: width * scale, height: height * scale)
+        guard let ctx = CGContext(
+            data: nil,
+            width: Int(newSize.width),
+            height: Int(newSize.height),
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return data
+        }
+
+        ctx.draw(cgImage, in: CGRect(origin: .zero, size: newSize))
+        guard let resized = ctx.makeImage() else { return data }
+
+        let destinationData = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            destinationData,
+            "public.png" as CFString,
+            1,
+            nil
+        ) else {
+            return data
+        }
+
+        CGImageDestinationAddImage(destination, resized, nil)
+        CGImageDestinationFinalize(destination)
+        return destinationData as Data
     }
 
     // MARK: - Keychain
