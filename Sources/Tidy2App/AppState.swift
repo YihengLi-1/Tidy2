@@ -180,6 +180,7 @@ final class AppState: ObservableObject {
     @Published var needsDownloadsAuthorization: Bool = true
     @Published var downloadsFolderPath: String = ""
     @Published var archiveRootPath: String = ""
+    @Published var userExcludedPaths: [String] = []
     @Published var desktopFolderPath: String = ""
     @Published var documentsFolderPath: String = ""
     @Published var accessHealth: [AccessTarget: AccessHealthItem] = [:]
@@ -246,6 +247,7 @@ final class AppState: ObservableObject {
     private let pendingInboxDismissedKey = "pending_inbox_dismissed_json"
     private let lastAIAnalysisAtKey = "last_ai_analysis_at"
     private let activeChecklistTemplateKey = "activeChecklistTemplateId"
+    private let userExcludedPathsKey = "user_excluded_paths_json"
 
     private var autoScanTimer: Timer?
 
@@ -254,6 +256,10 @@ final class AppState: ObservableObject {
         let savedChecklistID = UserDefaults.standard.string(forKey: activeChecklistTemplateKey)
         self.activeChecklist = ChecklistTemplate.presets.first(where: { $0.id == savedChecklistID })
             ?? ChecklistTemplate.presets[0]
+        if let jsonData = UserDefaults.standard.data(forKey: "user_excluded_paths_json"),
+           let paths = try? JSONDecoder().decode([String].self, from: jsonData) {
+            self.userExcludedPaths = paths
+        }
         services.indexer.onProgress = { [weak self] scope, count in
             Task { @MainActor [weak self] in
                 guard let self, self.isBusy else { return }
@@ -340,8 +346,14 @@ final class AppState: ObservableObject {
     }
 
     private var archiveExcludedPaths: [String] {
-        guard !archiveRootPath.isEmpty else { return [] }
-        return [URL(fileURLWithPath: archiveRootPath).standardizedFileURL.path]
+        var paths: [String] = []
+        if !archiveRootPath.isEmpty {
+            paths.append(URL(fileURLWithPath: archiveRootPath).standardizedFileURL.path)
+        }
+        paths += userExcludedPaths.map {
+            URL(fileURLWithPath: $0).standardizedFileURL.path
+        }
+        return paths
     }
 
     // MARK: - Bootstrap
@@ -429,6 +441,25 @@ final class AppState: ObservableObject {
         let template = ChecklistTemplate.presets.first(where: { $0.id == id }) ?? ChecklistTemplate.presets[0]
         activeChecklist = template
         UserDefaults.standard.set(template.id, forKey: activeChecklistTemplateKey)
+    }
+
+    func addUserExcludedPath(_ path: String) {
+        let normalized = URL(fileURLWithPath: path).standardizedFileURL.path
+        guard !userExcludedPaths.contains(normalized) else { return }
+        userExcludedPaths.append(normalized)
+        persistUserExcludedPaths()
+    }
+
+    func removeUserExcludedPath(_ path: String) {
+        let normalized = URL(fileURLWithPath: path).standardizedFileURL.path
+        userExcludedPaths.removeAll { $0 == normalized }
+        persistUserExcludedPaths()
+    }
+
+    private func persistUserExcludedPaths() {
+        if let data = try? JSONEncoder().encode(userExcludedPaths) {
+            UserDefaults.standard.set(data, forKey: userExcludedPathsKey)
+        }
     }
 
     func openVersionFiles() {

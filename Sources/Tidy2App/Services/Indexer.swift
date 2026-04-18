@@ -68,6 +68,13 @@ final class Indexer: IndexerServiceProtocol {
     private let skipPackageExtensions: Set<String> = [
         "app", "pkg", "photoslibrary", "bundle", "framework", "xcarchive"
     ]
+    /// Directory names unconditionally skipped during enumeration.
+    /// These are dev build/dependency dirs that should never be treated as user docs.
+    private static let devDirectoryNames: Set<String> = [
+        "node_modules", ".build", "DerivedData", "Pods", ".gradle",
+        "vendor", "__pycache__", ".tox", "dist", "target",
+        ".meteor", ".cargo", "bower_components"
+    ]
     var onScanCompleted: (@Sendable () -> Void)?
     var onProgress: (@Sendable (RootScope, Int) -> Void)?
 
@@ -255,6 +262,19 @@ final class Indexer: IndexerServiceProtocol {
                 if values.isDirectory == true {
                     let normalizedPath = fileURL.standardizedFileURL.path
                     if excludedPaths.contains(where: { normalizedPath == $0 || normalizedPath.hasPrefix($0 + "/") }) {
+                        enumerator.skipDescendants()
+                        continue
+                    }
+                    // Skip git repositories — these are source-code project trees,
+                    // not user documents. Indexing them causes source files to be
+                    // treated as organizable content and potentially moved/renamed.
+                    if fileManager.fileExists(atPath: fileURL.appendingPathComponent(".git").path) {
+                        enumerator.skipDescendants()
+                        continue
+                    }
+                    // Skip well-known development build / dependency directories.
+                    let dirName = fileURL.lastPathComponent
+                    if Self.devDirectoryNames.contains(dirName) {
                         enumerator.skipDescendants()
                         continue
                     }
