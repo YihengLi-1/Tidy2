@@ -1558,6 +1558,17 @@ final class SQLiteStore: @unchecked Sendable {
 
     // MARK: - File intelligence
 
+    func deleteFileIntelligence(path: String) throws {
+        try syncOnQueue {
+            let sql = "DELETE FROM file_ai WHERE file_path = ?"
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            try prepare(sql: sql, stmt: &stmt)
+            try bindText(path, index: 1, stmt: stmt)
+            try stepDone(stmt)
+        }
+    }
+
     func upsertFileIntelligence(_ intelligence: FileIntelligence) throws {
         try syncOnQueue {
             let sql = """

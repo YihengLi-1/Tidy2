@@ -678,6 +678,33 @@ final class AppState: ObservableObject {
         await refreshAIAnalysisState()
     }
 
+    /// Remove an AI intelligence record from memory + DB without touching the file on disk.
+    /// Used to dismiss ghost records (file already moved/deleted) or unwanted suggestions.
+    func dismissAIRecord(path: String) async {
+        aiIntelligenceItems.removeAll { $0.filePath == path }
+        searchResultIntelMap.removeValue(forKey: path)
+        try? await runBackground {
+            try self.services.store.deleteFileIntelligence(path: path)
+        }
+    }
+
+    /// Remove all AI records whose file no longer exists on disk.
+    func purgeGhostAIRecords() async {
+        let ghosts = aiIntelligenceItems.filter {
+            !FileManager.default.fileExists(atPath: $0.filePath)
+        }
+        guard !ghosts.isEmpty else { return }
+        let paths = ghosts.map(\.filePath)
+        aiIntelligenceItems.removeAll { paths.contains($0.filePath) }
+        for path in paths { searchResultIntelMap.removeValue(forKey: path) }
+        try? await runBackground {
+            for path in paths {
+                try? self.services.store.deleteFileIntelligence(path: path)
+            }
+        }
+        statusMessage = "已清除 \(ghosts.count) 条失效记录"
+    }
+
     func markAIItemKeep(path: String) async {
         let existing = aiIntelligenceItems.first(where: { $0.filePath == path }) ?? searchResultIntelMap[path]
 
