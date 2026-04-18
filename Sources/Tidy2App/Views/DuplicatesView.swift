@@ -201,6 +201,7 @@ private struct DuplicateGroupRow: View {
                     .disabled(removablePaths.isEmpty || isCleaningGroup)
 
                     ForEach(sortedDuplicates, id: \.path) { file in
+                        let isKeep = file.path == sortedDuplicates.first?.path
                         HStack(spacing: 8) {
                             Image(systemName: fileIcon(ext: URL(fileURLWithPath: file.path).pathExtension))
                                 .foregroundStyle(.secondary)
@@ -221,7 +222,7 @@ private struct DuplicateGroupRow: View {
 
                             Spacer()
 
-                            if file.path == sortedDuplicates.first?.path {
+                            if isKeep {
                                 Text("保留")
                                     .font(.caption2.weight(.medium))
                                     .foregroundStyle(.green)
@@ -233,6 +234,7 @@ private struct DuplicateGroupRow: View {
                                 ProgressView()
                                     .controlSize(.small)
                                     .frame(width: 72)
+                                    .accessibilityLabel("正在移除重复文件")
                             } else {
                                 Button("移到废纸篓") {
                                     trashFile(path: file.path)
@@ -240,10 +242,18 @@ private struct DuplicateGroupRow: View {
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
                                 .foregroundStyle(.red)
+                                .accessibilityLabel("将 \(URL(fileURLWithPath: file.path).lastPathComponent) 移到废纸篓")
                             }
                         }
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
+                        .tidyFileRowAccessibility(
+                            name: URL(fileURLWithPath: file.path).lastPathComponent,
+                            value: "\(DateHelper.relativeShort(file.modifiedAt))\(isKeep ? ", 将保留" : ", 重复副本")"
+                        )
+                        .tidyFileContextMenu(path: file.path) {
+                            if !isKeep { trashFile(path: file.path) }
+                        }
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))

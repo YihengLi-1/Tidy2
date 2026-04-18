@@ -180,9 +180,17 @@ private struct VersionGroupRow: View {
                                 }
                                 .buttonStyle(.bordered).controlSize(.small)
                                 .foregroundStyle(.red)
+                                .accessibilityLabel("将 \(URL(fileURLWithPath: file.path).lastPathComponent) 移到废纸篓")
                             }
                         }
                         .padding(.horizontal, 4).padding(.vertical, 2)
+                        .tidyFileRowAccessibility(
+                            name: URL(fileURLWithPath: file.path).lastPathComponent,
+                            value: "\(DateHelper.relativeShort(file.modifiedAt))\(idx == 0 ? ", 最新版本" : ", 旧版本")"
+                        )
+                        .tidyFileContextMenu(path: file.path) {
+                            if idx != 0 { onTrash([file.path], "移除旧版本？") }
+                        }
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))

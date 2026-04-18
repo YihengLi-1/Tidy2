@@ -6,6 +6,8 @@ struct CleanupView: View {
     @State private var trashingPaths: Set<String> = []
     @State private var resultMessage: String? = nil
     @State private var resultIsError: Bool = false
+    @State private var displayLimitLarge = 50
+    @State private var displayLimitInstallers = 50
 
     private var hasPrimarySuggestions: Bool {
         !appState.largeFiles.isEmpty || !appState.oldInstallers.isEmpty
@@ -45,8 +47,8 @@ struct CleanupView: View {
                     reclaimableSpaceCard
 
                     List {
-                        Section("大文件（>50MB）") {
-                            ForEach(appState.largeFiles, id: \.path) { file in
+                        Section("大文件（>50MB）\(appState.largeFiles.count > displayLimitLarge ? " · 显示 \(displayLimitLarge)/\(appState.largeFiles.count)" : "")") {
+                            ForEach(Array(appState.largeFiles.prefix(displayLimitLarge)), id: \.path) { file in
                                 CleanupFileRow(file: file) {
                                     HStack(spacing: 8) {
                                         Button("显示") {
@@ -54,25 +56,35 @@ struct CleanupView: View {
                                         }
                                         .buttonStyle(.bordered)
                                         .controlSize(.small)
+                                        .accessibilityLabel("在 Finder 中显示 \(file.name)")
 
                                         if trashingPaths.contains(file.path) {
                                             ProgressView()
                                                 .controlSize(.small)
                                                 .frame(width: 60)
+                                                .accessibilityLabel("正在移除 \(file.name)")
                                         } else {
                                             Button("移到废纸篓") {
                                                 trashAndReload(file.path)
                                             }
                                             .buttonStyle(.bordered)
                                             .controlSize(.small)
+                                            .accessibilityLabel("将 \(file.name) 移到废纸篓")
                                         }
                                     }
                                 }
                             }
+                            if appState.largeFiles.count > displayLimitLarge {
+                                Button("显示更多（还有 \(appState.largeFiles.count - displayLimitLarge) 个）") {
+                                    displayLimitLarge += 50
+                                }
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
                         }
 
-                        Section("老旧安装包") {
-                            ForEach(appState.oldInstallers, id: \.path) { file in
+                        Section("老旧安装包\(appState.oldInstallers.count > displayLimitInstallers ? " · 显示 \(displayLimitInstallers)/\(appState.oldInstallers.count)" : "")") {
+                            ForEach(Array(appState.oldInstallers.prefix(displayLimitInstallers)), id: \.path) { file in
                                 CleanupFileRow(file: file) {
                                     HStack(spacing: 8) {
                                         Button("显示") {
@@ -80,20 +92,30 @@ struct CleanupView: View {
                                         }
                                         .buttonStyle(.bordered)
                                         .controlSize(.small)
+                                        .accessibilityLabel("在 Finder 中显示 \(file.name)")
 
                                         if trashingPaths.contains(file.path) {
                                             ProgressView()
                                                 .controlSize(.small)
                                                 .frame(width: 60)
+                                                .accessibilityLabel("正在移除 \(file.name)")
                                         } else {
                                             Button("移到废纸篓") {
                                                 trashAndReload(file.path)
                                             }
                                             .buttonStyle(.bordered)
                                             .controlSize(.small)
+                                            .accessibilityLabel("将 \(file.name) 移到废纸篓")
                                         }
                                     }
                                 }
+                            }
+                            if appState.oldInstallers.count > displayLimitInstallers {
+                                Button("显示更多（还有 \(appState.oldInstallers.count - displayLimitInstallers) 个）") {
+                                    displayLimitInstallers += 50
+                                }
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             }
                         }
 
@@ -224,6 +246,11 @@ private struct CleanupFileRow<Actions: View>: View {
             actions
         }
         .padding(.vertical, 4)
+        .tidyFileRowAccessibility(
+            name: file.name,
+            value: "\(SizeFormatter.string(from: file.sizeBytes)), \(DateHelper.relativeShort(file.modifiedAt))"
+        )
+        .tidyFileContextMenu(path: file.path)
     }
 
     private func compactPath(_ path: String) -> String {
