@@ -69,9 +69,27 @@ struct OnboardingView: View {
                     }
                 }
 
-                // Step 4 — Claude API Key (optional but unlocks AI features)
+                // Step 4 — Desktop (optional)
                 stepCard(
                     number: "4",
+                    title: "扫描桌面（可选）",
+                    subtitle: "扫描桌面上的文件，一并纳入整理建议。",
+                    isRequired: false
+                ) {
+                    if appState.desktopFolderPath.isEmpty {
+                        Button("启用桌面扫描") {
+                            Task { await appState.requestDesktopAuthorization() }
+                        }
+                        .buttonStyle(.bordered)
+                    } else {
+                        statusRow(icon: "checkmark.circle.fill", color: .green,
+                                  text: appState.desktopFolderPath)
+                    }
+                }
+
+                // Step 5 — Claude API Key (optional but unlocks AI features)
+                stepCard(
+                    number: "5",
                     title: "设置 Claude API Key（可选）",
                     subtitle: "用于 AI 智能分类文件内容、生成整理建议。没有 key 仍可使用基础功能。",
                     isRequired: false

@@ -2046,16 +2046,32 @@ final class SQLiteStore: @unchecked Sendable {
     private func queryFilesByMetadataUnlocked(filters: SearchFilters,
                                               keywords: [String],
                                               limit: Int) throws -> [SearchResultItem] {
-        var conditions: [String] = ["status = 'active'"]
+        var conditions: [String] = []
         var textParams: [String] = []
         var doubleParams: [Double] = []
         var int64Params: [Int64] = []
         var bindPlan: [String] = []
 
+        switch filters.location {
+        case .archived:
+            conditions.append("status = 'archived'")
+            if !filters.archiveRootPath.isEmpty {
+                conditions.append("path LIKE ?")
+                textParams.append("\(filters.archiveRootPath)%")
+                bindPlan.append("text")
+            }
+        case nil:
+            conditions.append("status IN ('active', 'archived')")
+        default:
+            conditions.append("status = 'active'")
+        }
+
         if let location = filters.location {
-            conditions.append("root_scope = ?")
-            textParams.append(location.rawValue)
-            bindPlan.append("text")
+            if location != .archived {
+                conditions.append("root_scope = ?")
+                textParams.append(location.rawValue)
+                bindPlan.append("text")
+            }
         }
 
         if let fileType = filters.fileType, !fileType.isEmpty {
@@ -2171,16 +2187,32 @@ final class SQLiteStore: @unchecked Sendable {
         guard !terms.isEmpty else { return [] }
         let ftsQuery = terms.map { "\($0)*" }.joined(separator: " AND ")
 
-        var conditions: [String] = ["f.status = 'active'", "f.ext = 'pdf'"]
+        var conditions: [String] = ["f.ext = 'pdf'"]
         var textParams: [String] = []
         var doubleParams: [Double] = []
         var int64Params: [Int64] = []
         var bindPlan: [String] = []
 
+        switch filters.location {
+        case .archived:
+            conditions.append("f.status = 'archived'")
+            if !filters.archiveRootPath.isEmpty {
+                conditions.append("f.path LIKE ?")
+                textParams.append("\(filters.archiveRootPath)%")
+                bindPlan.append("text")
+            }
+        case nil:
+            conditions.append("f.status IN ('active', 'archived')")
+        default:
+            conditions.append("f.status = 'active'")
+        }
+
         if let location = filters.location {
-            conditions.append("f.root_scope = ?")
-            textParams.append(location.rawValue)
-            bindPlan.append("text")
+            if location != .archived {
+                conditions.append("f.root_scope = ?")
+                textParams.append(location.rawValue)
+                bindPlan.append("text")
+            }
         }
         if let dateFrom = filters.dateFrom {
             conditions.append("f.modified_at >= ?")
