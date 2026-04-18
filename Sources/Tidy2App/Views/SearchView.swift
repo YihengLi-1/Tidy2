@@ -7,6 +7,7 @@ struct SearchView: View {
     @State private var showAdvancedFilters: Bool
     @State private var didSearch: Bool = false
     @State private var lastParsedQuery: String = ""
+    @State private var displayLimit = 50
     @FocusState private var isSearchFieldFocused: Bool
 
     init(initialShowAdvancedFilters: Bool = false) {
@@ -130,7 +131,13 @@ struct SearchView: View {
         } else {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(appState.searchResults) { item in
+                    if appState.searchResults.count > displayLimit {
+                        Text("共 \(appState.searchResults.count) 条，显示前 \(displayLimit) 条")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 4)
+                    }
+                    ForEach(Array(appState.searchResults.prefix(displayLimit))) { item in
                         let intel = appState.searchResultIntelMap[item.path]
                         HStack(alignment: .top, spacing: 10) {
                             VStack(alignment: .leading, spacing: 4) {
@@ -172,6 +179,7 @@ struct SearchView: View {
                                 }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
+                                .accessibilityLabel("在 Finder 中显示 \(item.name)")
 
                                 Button("移到废纸篓") {
                                     Task {
@@ -180,6 +188,7 @@ struct SearchView: View {
                                 }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
+                                .accessibilityLabel("将 \(item.name) 移到废纸篓")
 
                                 if let intel, !intel.suggestedFolder.isEmpty {
                                     Button("移到建议位置") {
@@ -189,6 +198,7 @@ struct SearchView: View {
                                     }
                                     .buttonStyle(.bordered)
                                     .controlSize(.small)
+                                    .accessibilityLabel("将 \(item.name) 移到 \(intel.suggestedFolder)")
                                 }
                             }
                         }
@@ -196,6 +206,22 @@ struct SearchView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color.gray.opacity(0.07))
                         .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .tidyFileRowAccessibility(
+                            name: item.name,
+                            value: "\(SizeFormatter.string(from: item.sizeBytes)), \(DateHelper.relativeShort(item.modifiedAt))"
+                        )
+                        .tidyFileContextMenu(path: item.path) {
+                            Task { _ = await appState.moveFileToTrash(path: item.path) }
+                        }
+                    }
+                    if appState.searchResults.count > displayLimit {
+                        Button("显示更多（还有 \(appState.searchResults.count - displayLimit) 个）") {
+                            displayLimit += 50
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .padding(.top, 4)
+                        .accessibilityLabel("加载更多搜索结果")
                     }
                 }
             }
@@ -288,6 +314,7 @@ struct SearchView: View {
         }
         appState.executeSearch()
         didSearch = true
+        displayLimit = 50
     }
 
     private func applyQuickSearch(_ preset: QuickSearchPreset) {

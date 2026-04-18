@@ -50,10 +50,16 @@ struct BundleDetailView: View {
                     if renameTemplate.isEmpty {
                         renameTemplate = bundle.action.renameTemplate ?? ""
                     }
-                    if let bookmark = bundle.action.targetFolderBookmark,
-                       let url = resolveBookmarkURL(bookmark) {
-                        selectedTargetBookmark = bookmark
-                        selectedTargetPath = url.path
+                    if let bookmark = bundle.action.targetFolderBookmark {
+                        if let url = resolveBookmarkURL(bookmark) {
+                            selectedTargetBookmark = bookmark
+                            selectedTargetPath = url.path
+                        } else {
+                            // Bookmark is stale — clear it so the user sees a prompt to re-select
+                            selectedTargetBookmark = nil
+                            selectedTargetPath = ""
+                            appState.statusMessage = "目标文件夹书签已失效，请重新选择整理文件夹"
+                        }
                     }
                     showFullTargetPath = false
                     Task { await appState.refreshBundleMissingCount(bundleID: bundle.id) }

@@ -101,24 +101,32 @@ struct InstallerCandidatesView: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(isProcessing(item))
+                .accessibilityLabel("保留 \(item.name)")
 
                 Button("归档") {
                     apply(item, action: .archive)
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(isProcessing(item))
+                .accessibilityLabel("归档 \(item.name)")
 
                 Button("隔离") {
                     apply(item, action: .quarantine)
                 }
                 .buttonStyle(.bordered)
                 .disabled(isProcessing(item))
+                .accessibilityLabel("隔离 \(item.name)")
             }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.gray.opacity(0.07))
         .clipShape(RoundedRectangle(cornerRadius: 10))
+        .tidyFileRowAccessibility(
+            name: item.name,
+            value: "\(SizeFormatter.string(from: item.sizeBytes)), \(DateHelper.relativeShort(item.modifiedAt))"
+        )
+        .tidyFileContextMenu(path: item.path)
     }
 
     private func apply(_ item: SearchResultItem, action: PendingInboxAction) {

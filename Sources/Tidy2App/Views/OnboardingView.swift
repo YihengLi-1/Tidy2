@@ -174,7 +174,7 @@ struct OnboardingView: View {
             }
             .padding(24)
         }
-        .frame(width: 580)
+        .frame(maxWidth: 580)
     }
 
     // MARK: - Helpers
