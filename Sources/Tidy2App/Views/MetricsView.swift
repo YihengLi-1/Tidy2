@@ -5,13 +5,13 @@ struct MetricsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: TidySpacing.xxl) {
                 // ── Summary cards ─────────────────────────────────────
                 summaryGrid
 
                 // ── Weekly breakdown ──────────────────────────────────
                 if !appState.metricsRows.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: TidySpacing.lg) {
                         Text("按周统计（最近 4 周）")
                             .font(.headline)
                             .padding(.horizontal, 2)
@@ -43,7 +43,7 @@ struct MetricsView: View {
 
     private var summaryGrid: some View {
         let cols = [GridItem(.flexible()), GridItem(.flexible())]
-        return LazyVGrid(columns: cols, spacing: 12) {
+        return LazyVGrid(columns: cols, spacing: TidySpacing.lg) {
             statCard(
                 icon: "arrow.right.doc.on.clipboard",
                 color: .blue,
@@ -72,8 +72,8 @@ struct MetricsView: View {
     }
 
     private func statCard(icon: String, color: Color, value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: TidySpacing.sm) {
+            HStack(spacing: TidySpacing.xs) {
                 Image(systemName: icon)
                     .foregroundStyle(color)
                 Text(label)
@@ -85,16 +85,16 @@ struct MetricsView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
-        .padding(16)
+        .padding(TidySpacing.xl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(color.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(color.opacity(TidyOpacity.light))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
     }
 
     // MARK: - Weekly row
 
     private func weeklyRow(_ row: WeeklyMetricsRow) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: TidySpacing.sm) {
             HStack {
                 Text(row.weekKey)
                     .font(.subheadline.weight(.semibold))
@@ -103,7 +103,7 @@ struct MetricsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            HStack(spacing: 16) {
+            HStack(spacing: TidySpacing.xl) {
                 metricPill("确认 \(row.weeklyConfirmCount) 次", .blue)
                 metricPill(SizeFormatter.string(from: row.autopilotIsolatedBytes) + " 自动隔离", .green)
                 if row.undoRate > 0 {
@@ -111,18 +111,18 @@ struct MetricsView: View {
                 }
             }
         }
-        .padding(12)
-        .background(Color.gray.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .padding(TidySpacing.lg)
+        .background(Color.gray.opacity(TidyOpacity.ultraLight))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.md))
     }
 
     private func metricPill(_ text: String, _ color: Color) -> some View {
         Text(text)
             .font(.caption2.weight(.medium))
             .foregroundStyle(color)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, TidySpacing.sm)
             .padding(.vertical, 3)
-            .background(color.opacity(0.12))
+            .background(color.opacity(TidyOpacity.strong))
             .clipShape(Capsule())
     }
 

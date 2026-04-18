@@ -16,6 +16,7 @@
 		2905FBD819C37D2F08BFEBAF /* InstallerCandidatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90A0F71043EFC494B2BE8AB8 /* InstallerCandidatesView.swift */; };
 		336E0D87A540CE934A7A8A33 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E10E5B035BC8DE4C434722F /* EmptyStateView.swift */; };
 		377550A2189F217E337DF6BB /* Protocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B10BB6124889269A4376D3D /* Protocols.swift */; };
+		AA1234567890ABCDEF012346 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1234567890ABCDEF012345 /* DesignTokens.swift */; };
 		3A8305E93D7C2D2D8F54BC6D /* ChangeLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15F02F96D4774A3577841750 /* ChangeLogView.swift */; };
 		3A89368714CA9EF9953559AB /* Scanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0973EB55D6AFA72B35AC2BB /* Scanner.swift */; };
 		3D94481F7C31C596D2242998 /* DomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6D4EC36EF8E8BC942605EF9 /* DomainModels.swift */; };
@@ -60,6 +61,7 @@
 		07BB021C963CAC13A226A4DD /* FSEventsWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FSEventsWatcher.swift; sourceTree = "<group>"; };
 		0A72013F29870C97A31BE5BA /* BundleBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleBuilder.swift; sourceTree = "<group>"; };
 		0B25EB25094DA79AE7306660 /* Tidy2App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tidy2App.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA1234567890ABCDEF012345 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		15F02F96D4774A3577841750 /* ChangeLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeLogView.swift; sourceTree = "<group>"; };
 		171E76DD0E12E74F35FAB92C /* SearchParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchParser.swift; sourceTree = "<group>"; };
 		21A7AD36AA7EF0D49BBE57E0 /* CleanupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupView.swift; sourceTree = "<group>"; };
@@ -121,6 +123,8 @@
 			isa = PBXGroup;
 			children = (
 				49542AE2C7669837161913C3 /* AppState.swift */,
+				AA1234567890ABCDEF012345 /* DesignTokens.swift */,
+
 				F9AF6610E00E4BC6E911F150 /* Assets.xcassets */,
 				7B32E42F41C35A80A4D5B044 /* NotificationDelegate.swift */,
 				DA0F6A9DE5473D80176F99E0 /* Tidy2App.swift */,
@@ -306,6 +310,8 @@
 				B1FCDC35330F6BA7DF236330 /* AccessManager.swift in Sources */,
 				9286BB6738FB081848A03DB5 /* ActionEngine.swift in Sources */,
 				8F15FE2CCEF4ED96A632F35C /* AppState.swift in Sources */,
+				AA1234567890ABCDEF012346 /* DesignTokens.swift in Sources */,
+
 				E0C4C373C8CB32499785DDAD /* BundleBuilder.swift in Sources */,
 				4220FF44F6C0D4912A33FE87 /* BundleDetailView.swift in Sources */,
 				09ECF69FA858CBC48EB9C830 /* BundlesView.swift in Sources */,

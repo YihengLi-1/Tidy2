@@ -30,7 +30,7 @@ struct CleanupView: View {
             } else {
                 VStack(alignment: .leading, spacing: 16) {
                     if let msg = resultMessage {
-                        HStack(spacing: 8) {
+                        HStack(spacing: TidySpacing.sm) {
                             Image(systemName: resultIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
                                 .foregroundStyle(resultIsError ? Color.orange : Color.green)
                             Text(msg)
@@ -40,7 +40,7 @@ struct CleanupView: View {
                         .padding(.vertical, 8)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(resultIsError ? Color.orange.opacity(0.10) : Color.green.opacity(0.10))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.md))
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
@@ -50,7 +50,7 @@ struct CleanupView: View {
                         Section("大文件（>50MB）\(appState.largeFiles.count > displayLimitLarge ? " · 显示 \(displayLimitLarge)/\(appState.largeFiles.count)" : "")") {
                             ForEach(Array(appState.largeFiles.prefix(displayLimitLarge)), id: \.path) { file in
                                 CleanupFileRow(file: file) {
-                                    HStack(spacing: 8) {
+                                    HStack(spacing: TidySpacing.sm) {
                                         Button("显示") {
                                             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: file.path)])
                                         }
@@ -86,7 +86,7 @@ struct CleanupView: View {
                         Section("老旧安装包\(appState.oldInstallers.count > displayLimitInstallers ? " · 显示 \(displayLimitInstallers)/\(appState.oldInstallers.count)" : "")") {
                             ForEach(Array(appState.oldInstallers.prefix(displayLimitInstallers)), id: \.path) { file in
                                 CleanupFileRow(file: file) {
-                                    HStack(spacing: 8) {
+                                    HStack(spacing: TidySpacing.sm) {
                                         Button("显示") {
                                             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: file.path)])
                                         }
@@ -120,7 +120,7 @@ struct CleanupView: View {
                         }
 
                         Section("重复文件汇总") {
-                            HStack(alignment: .center, spacing: 12) {
+                            HStack(alignment: .center, spacing: TidySpacing.lg) {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("发现 \(appState.duplicateGroups.count) 组重复，可释放 \(SizeFormatter.string(from: appState.duplicatesTotalWastedBytes))")
                                         .font(.subheadline.weight(.semibold))
@@ -169,7 +169,7 @@ struct CleanupView: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.gray.opacity(0.07))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
     }
 
     private var totalReclaimableBytes: Int64 {
@@ -227,7 +227,7 @@ private struct CleanupFileRow<Actions: View>: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: TidySpacing.lg) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(file.name)
                     .font(.headline)

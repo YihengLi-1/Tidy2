@@ -12,7 +12,7 @@ struct QuarantineView: View {
     @State private var expiredCountSnapshot = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: TidySpacing.xl) {
             summary
             howToHandleButton
             nextStepButton
@@ -22,7 +22,7 @@ struct QuarantineView: View {
             safeCleanupSection
             advancedSection
         }
-        .padding(20)
+        .padding(TidySpacing.xxl)
         .navigationTitle("隔离区（可随时恢复）")
         .onAppear {
             syncCountSnapshots()
@@ -67,10 +67,10 @@ struct QuarantineView: View {
             Text("隔离区：共 \(totalCount) 个文件（已过期：\(expiredCount) 个）")
                 .font(.title3.weight(.semibold))
         }
-        .padding(16)
+        .padding(TidySpacing.xl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.gray.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(Color.gray.opacity(TidyOpacity.light))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
     }
 
     private var howToHandleButton: some View {
@@ -80,13 +80,13 @@ struct QuarantineView: View {
         .buttonStyle(.bordered)
         .controlSize(.regular)
         .popover(isPresented: $showHowToHandlePopover, arrowEdge: .top) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: TidySpacing.md) {
                 Text("先别删：隔离区默认保留30天。")
                 Text("不确定就点【恢复】回原位置。")
                 Text("确认不要了再清理过期项。")
             }
             .font(.body)
-            .padding(16)
+            .padding(TidySpacing.xl)
             .frame(width: 320, alignment: .leading)
         }
     }
@@ -125,7 +125,7 @@ struct QuarantineView: View {
     private var restoreToast: some View {
         Group {
             if let restoredName {
-                HStack(spacing: 8) {
+                HStack(spacing: TidySpacing.sm) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                     Text("已恢复：\(restoredName)")
                         .font(.subheadline)
@@ -133,10 +133,10 @@ struct QuarantineView: View {
                 }
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.green.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .background(Color.green.opacity(TidyOpacity.strong))
+                .clipShape(RoundedRectangle(cornerRadius: TidyRadius.sm))
             } else if let purgeMsg = purgeStatusMessage {
-                HStack(spacing: 8) {
+                HStack(spacing: TidySpacing.sm) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                     Text(purgeMsg)
                         .font(.subheadline)
@@ -144,8 +144,8 @@ struct QuarantineView: View {
                 }
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.green.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .background(Color.green.opacity(TidyOpacity.strong))
+                .clipShape(RoundedRectangle(cornerRadius: TidyRadius.sm))
             }
         }
     }
@@ -162,10 +162,10 @@ struct QuarantineView: View {
                 )
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10) {
+                    LazyVStack(alignment: .leading, spacing: TidySpacing.md) {
                         ForEach(appState.quarantineItems) { item in
                             let fileName = URL(fileURLWithPath: item.originalPath).lastPathComponent
-                            HStack(alignment: .top, spacing: 10) {
+                            HStack(alignment: .top, spacing: TidySpacing.md) {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(fileName)
                                         .font(.headline)
@@ -178,7 +178,7 @@ struct QuarantineView: View {
                                 }
                                 Spacer()
                                 if appState.quarantineFilter == .active {
-                                    HStack(spacing: 8) {
+                                    HStack(spacing: TidySpacing.sm) {
                                         Button("显示") {
                                             NSWorkspace.shared.activateFileViewerSelecting(
                                                 [URL(fileURLWithPath: item.quarantinePath)]
@@ -197,10 +197,10 @@ struct QuarantineView: View {
                                     }
                                 }
                             }
-                            .padding(12)
+                            .padding(TidySpacing.lg)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.gray.opacity(0.07))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .background(Color.gray.opacity(TidyOpacity.ultraLight))
+                            .clipShape(RoundedRectangle(cornerRadius: TidyRadius.md))
                             .tidyFileRowAccessibility(
                                 name: fileName,
                                 value: "隔离于 \(DateHelper.relativeShort(item.quarantinedAt))"
@@ -232,7 +232,7 @@ struct QuarantineView: View {
     @ViewBuilder
     private var safeCleanupSection: some View {
         if appState.safeCleanupQuarantineCount > 0 {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: TidySpacing.sm) {
                 Text("可安全清理：\(appState.safeCleanupQuarantineCount) 项")
                     .font(.subheadline.weight(.semibold))
                 Text("仅包含已过期的 dmg/pkg 与重复文件。")
@@ -244,16 +244,16 @@ struct QuarantineView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(appState.isBusy)
             }
-            .padding(12)
+            .padding(TidySpacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.orange.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .background(Color.orange.opacity(TidyOpacity.light))
+            .clipShape(RoundedRectangle(cornerRadius: TidyRadius.md))
         }
     }
 
     private var advancedSection: some View {
         DisclosureGroup("高级选项", isExpanded: $showAdvanced) {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: TidySpacing.lg) {
                 Toggle("每周自动清理已过期文件", isOn: Binding(
                     get: { appState.autoPurgeExpiredQuarantine },
                     set: { value in Task { await appState.setAutoPurgeExpiredQuarantine(value) } }
@@ -267,10 +267,10 @@ struct QuarantineView: View {
             }
             .padding(.top, 8)
         }
-        .padding(16)
+        .padding(TidySpacing.xl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.gray.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(Color.gray.opacity(TidyOpacity.light))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
     }
 
     private var primaryButtonTitle: String {

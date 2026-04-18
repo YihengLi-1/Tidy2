@@ -5,218 +5,341 @@ struct OnboardingView: View {
     @State private var apiKey: String = FileIntelligenceService.readAPIKeyFromKeychain() ?? ""
     @State private var isCompleting = false
 
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("欢迎使用 Tidy 2.0")
-                        .font(.title2.weight(.semibold))
-                    Text("所有操作均可撤销。隔离文件 30 天内可恢复。")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+    // Track which steps are expanded for progressive disclosure
+    @State private var expandedStep: Int? = 1
 
-                // Step 1 — Downloads (required)
-                stepCard(
-                    number: "1",
-                    title: "授权 Downloads 文件夹",
-                    subtitle: "必须。用于安全扫描和隔离重复文件。",
-                    isRequired: true
-                ) {
-                    if appState.needsDownloadsAuthorization {
-                        Button("授权 Downloads") {
-                            Task { await appState.requestDownloadsAuthorization() }
+    var body: some View {
+        VStack(spacing: 0) {
+            // ── Header ────────────────────────────────────────────────
+            header
+
+            Divider()
+
+            // ── Steps ─────────────────────────────────────────────────
+            ScrollView {
+                VStack(alignment: .leading, spacing: TidySpacing.md) {
+                    stepCard(
+                        step: 1,
+                        title: "授权 Downloads 文件夹",
+                        subtitle: "必须。用于安全扫描和隔离重复文件。",
+                        isRequired: true,
+                        isComplete: !appState.needsDownloadsAuthorization
+                    ) {
+                        if appState.needsDownloadsAuthorization {
+                            Button("授权 Downloads") {
+                                Task { await appState.requestDownloadsAuthorization() }
+                            }
+                            .buttonStyle(.borderedProminent)
+                        } else {
+                            statusRow(icon: "checkmark.circle.fill", color: .green,
+                                      text: appState.downloadsFolderPath)
+                        }
+                    }
+
+                    stepCard(
+                        step: 2,
+                        title: "整理好的文件放哪里？",
+                        subtitle: "选择一个文件夹，作为整理后文件的归档位置。",
+                        isRequired: false,
+                        isComplete: !appState.archiveRootPath.isEmpty
+                    ) {
+                        if appState.archiveRootPath.isEmpty {
+                            VStack(alignment: .leading, spacing: TidySpacing.sm) {
+                                Button {
+                                    Task { await appState.setupDefaultArchiveRoot() }
+                                } label: {
+                                    HStack(spacing: TidySpacing.md) {
+                                        Image(systemName: "folder.badge.plus")
+                                            .font(.title3)
+                                            .foregroundColor(.accentColor)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("使用推荐位置")
+                                                .font(.subheadline.weight(.medium))
+                                            Text("~/Documents/Tidy Archive")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                        Text("推荐")
+                                            .font(.caption.weight(.medium))
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, TidySpacing.sm)
+                                            .padding(.vertical, 3)
+                                            .background(Color.accentColor)
+                                            .clipShape(Capsule())
+                                    }
+                                    .padding(TidySpacing.lg)
+                                    .background(Color.blue.opacity(TidyOpacity.light))
+                                    .clipShape(RoundedRectangle(cornerRadius: TidyRadius.md))
+                                }
+                                .buttonStyle(.plain)
+
+                                Button("自定义位置…") {
+                                    Task { await appState.reauthorizeArchiveRoot() }
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            statusRow(icon: "folder.fill", color: .accentColor,
+                                      text: appState.archiveRootPath)
+                        }
+                    }
+
+                    stepCard(
+                        step: 3,
+                        title: "扫描 Documents 文件夹（可选）",
+                        subtitle: "启用后可检测散落在多个位置的相关文件并智能归类。",
+                        isRequired: false,
+                        isComplete: !appState.documentsFolderPath.isEmpty
+                    ) {
+                        if appState.documentsFolderPath.isEmpty {
+                            Button("启用 Documents 扫描") {
+                                Task { await appState.requestDocumentsAuthorization() }
+                            }
+                            .buttonStyle(.bordered)
+                        } else {
+                            statusRow(icon: "checkmark.circle.fill", color: .green,
+                                      text: appState.documentsFolderPath)
+                        }
+                    }
+
+                    stepCard(
+                        step: 4,
+                        title: "扫描桌面（可选）",
+                        subtitle: "扫描桌面上的文件，一并纳入整理建议。",
+                        isRequired: false,
+                        isComplete: !appState.desktopFolderPath.isEmpty
+                    ) {
+                        if appState.desktopFolderPath.isEmpty {
+                            Button("启用桌面扫描") {
+                                Task { await appState.requestDesktopAuthorization() }
+                            }
+                            .buttonStyle(.bordered)
+                        } else {
+                            statusRow(icon: "checkmark.circle.fill", color: .green,
+                                      text: appState.desktopFolderPath)
+                        }
+                    }
+
+                    stepCard(
+                        step: 5,
+                        title: "设置 Claude API Key（可选）",
+                        subtitle: "用于 AI 智能分类文件内容、生成整理建议。没有 key 仍可使用基础功能。",
+                        isRequired: false,
+                        isComplete: !apiKey.isEmpty
+                    ) {
+                        SecureField("sk-ant-...", text: $apiKey)
+                            .textFieldStyle(.roundedBorder)
+                            .onChange(of: apiKey) { newValue in
+                                FileIntelligenceService.saveAPIKey(newValue)
+                            }
+                        if !apiKey.isEmpty {
+                            statusRow(icon: "checkmark.circle.fill", color: .green,
+                                      text: "API Key 已设置")
+                        } else {
+                            Link("获取 API Key → console.anthropic.com",
+                                 destination: URL(string: "https://console.anthropic.com")!)
+                                .font(.caption)
+                        }
+                    }
+
+                    // ── Footer ─────────────────────────────────────────
+                    VStack(spacing: TidySpacing.sm) {
+                        Button {
+                            isCompleting = true
+                            Task {
+                                await appState.completeOnboarding()
+                                if appState.showOnboarding {
+                                    isCompleting = false
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: TidySpacing.sm) {
+                                if isCompleting {
+                                    ProgressView().controlSize(.small)
+                                }
+                                Text("开始使用")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .padding(.vertical, TidySpacing.xs)
                         }
                         .buttonStyle(.borderedProminent)
-                    } else {
-                        statusRow(icon: "checkmark.circle.fill", color: .green,
-                                  text: appState.downloadsFolderPath)
-                    }
-                }
+                        .controlSize(.large)
+                        .disabled(appState.needsDownloadsAuthorization || isCompleting)
 
-                // Step 2 — Archive Root (one-tap default)
-                stepCard(
-                    number: "2",
-                    title: "整理好的文件放哪里？",
-                    subtitle: "",
-                    isRequired: false
-                ) {
-                    if appState.archiveRootPath.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Button {
-                                Task { await appState.setupDefaultArchiveRoot() }
-                            } label: {
-                                HStack(spacing: 10) {
-                                    Image(systemName: "folder.badge.plus")
-                                        .font(.title3)
-                                        .foregroundColor(.accentColor)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("使用推荐位置")
-                                            .font(.subheadline.weight(.medium))
-                                        Text("~/Documents/Tidy Archive")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    Text("推荐")
-                                        .font(.caption.weight(.medium))
-                                        .foregroundStyle(.white)
-                                        .padding(.horizontal, 8).padding(.vertical, 3)
-                                        .background(Color.accentColor)
-                                        .clipShape(Capsule())
-                                }
-                                .padding(12)
-                                .background(Color.blue.opacity(0.08))
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                            }
-                            .buttonStyle(.plain)
+                        if !appState.statusMessage.isEmpty {
+                            Text(appState.statusMessage)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
 
-                            Button("自定义位置…") {
-                                Task { await appState.reauthorizeArchiveRoot() }
-                            }
-                            .buttonStyle(.borderless)
+                        Text("所有操作均可撤销，隔离文件 30 天内可恢复")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        statusRow(icon: "folder.fill", color: .accentColor,
-                                  text: appState.archiveRootPath)
+                            .foregroundStyle(.tertiary)
                     }
+                    .padding(.top, TidySpacing.sm)
                 }
-
-                // Step 3 — Documents (optional)
-                stepCard(
-                    number: "3",
-                    title: "扫描 Documents 文件夹（可选）",
-                    subtitle: "启用后可检测散落在多个位置的相关文件并智能归类。",
-                    isRequired: false
-                ) {
-                    if appState.documentsFolderPath.isEmpty {
-                        Button("启用 Documents 扫描") {
-                            Task { await appState.requestDocumentsAuthorization() }
-                        }
-                        .buttonStyle(.bordered)
-                    } else {
-                        statusRow(icon: "checkmark.circle.fill", color: .green,
-                                  text: appState.documentsFolderPath)
-                    }
-                }
-
-                // Step 4 — Desktop (optional)
-                stepCard(
-                    number: "4",
-                    title: "扫描桌面（可选）",
-                    subtitle: "扫描桌面上的文件，一并纳入整理建议。",
-                    isRequired: false
-                ) {
-                    if appState.desktopFolderPath.isEmpty {
-                        Button("启用桌面扫描") {
-                            Task { await appState.requestDesktopAuthorization() }
-                        }
-                        .buttonStyle(.bordered)
-                    } else {
-                        statusRow(icon: "checkmark.circle.fill", color: .green,
-                                  text: appState.desktopFolderPath)
-                    }
-                }
-
-                // Step 5 — Claude API Key (optional but unlocks AI features)
-                stepCard(
-                    number: "5",
-                    title: "设置 Claude API Key（可选）",
-                    subtitle: "用于 AI 智能分类文件内容、生成整理建议。没有 key 仍可使用基础功能。",
-                    isRequired: false
-                ) {
-                    SecureField("sk-ant-...", text: $apiKey)
-                        .textFieldStyle(.roundedBorder)
-                        .onChange(of: apiKey) { newValue in
-                            FileIntelligenceService.saveAPIKey(newValue)
-                        }
-                    if !apiKey.isEmpty {
-                        statusRow(icon: "checkmark.circle.fill", color: .green,
-                                  text: "API Key 已设置")
-                    } else {
-                        Link("获取 API Key → console.anthropic.com",
-                             destination: URL(string: "https://console.anthropic.com")!)
-                            .font(.caption)
-                    }
-                }
-
-                // Footer
-                HStack(alignment: .center) {
-                    Spacer()
-                    Button {
-                        isCompleting = true
-                        Task {
-                            await appState.completeOnboarding()
-                            if appState.showOnboarding {
-                                isCompleting = false
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            if isCompleting {
-                                ProgressView()
-                                    .controlSize(.small)
-                            }
-                            Text("开始使用")
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(appState.needsDownloadsAuthorization || isCompleting)
-                }
-
-                if !appState.statusMessage.isEmpty {
-                    Text(appState.statusMessage)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                .padding(TidySpacing.xxl)
             }
-            .padding(24)
         }
-        .frame(maxWidth: 580)
+        .frame(width: 520)
     }
 
-    // MARK: - Helpers
+    // MARK: - Header
+
+    private var header: some View {
+        HStack(spacing: TidySpacing.lg) {
+            // App icon placeholder
+            ZStack {
+                RoundedRectangle(cornerRadius: TidyRadius.lg)
+                    .fill(Color.accentColor.gradient)
+                    .frame(width: 48, height: 48)
+                Image(systemName: "folder.badge.gearshape")
+                    .font(.title2)
+                    .foregroundStyle(.white)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("欢迎使用 Tidy 2.0")
+                    .font(.title2.weight(.semibold))
+                Text("本地优先 · AI 驱动 · 数据不离本机")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            // Progress indicator
+            progressRing
+        }
+        .padding(.horizontal, TidySpacing.xxl)
+        .padding(.vertical, TidySpacing.xl)
+    }
+
+    private var progressRing: some View {
+        let completed = completedStepCount
+        let total = 5
+        return ZStack {
+            Circle()
+                .stroke(Color.secondary.opacity(0.2), lineWidth: 4)
+            Circle()
+                .trim(from: 0, to: CGFloat(completed) / CGFloat(total))
+                .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.easeInOut(duration: 0.4), value: completed)
+            VStack(spacing: 0) {
+                Text("\(completed)")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                Text("/\(total)")
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 52, height: 52)
+    }
+
+    private var completedStepCount: Int {
+        var count = 0
+        if !appState.needsDownloadsAuthorization { count += 1 }
+        if !appState.archiveRootPath.isEmpty { count += 1 }
+        if !appState.documentsFolderPath.isEmpty { count += 1 }
+        if !appState.desktopFolderPath.isEmpty { count += 1 }
+        if !apiKey.isEmpty { count += 1 }
+        return count
+    }
+
+    // MARK: - Step card
 
     @ViewBuilder
     private func stepCard<Content: View>(
-        number: String,
+        step: Int,
         title: String,
         subtitle: String,
         isRequired: Bool,
+        isComplete: Bool,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Text("第 \(number) 步")
-                    .font(.headline)
-                if isRequired {
-                    Text("必须")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.accentColor)
-                        .clipShape(Capsule())
+        VStack(alignment: .leading, spacing: TidySpacing.md) {
+            // Step header row
+            HStack(spacing: TidySpacing.sm) {
+                stepCircle(number: step, isComplete: isComplete)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: TidySpacing.xs) {
+                        Text(title)
+                            .font(.subheadline.weight(.semibold))
+                        if isRequired {
+                            Text("必须")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Color.accentColor)
+                                .clipShape(Capsule())
+                        }
+                        if isComplete && !isRequired {
+                            Text("已完成")
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+                        }
+                    }
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+
+                Spacer()
             }
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-            Text(subtitle)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+
+            // Content
             content()
+                .padding(.leading, 36) // align with text after step circle
         }
-        .padding()
+        .padding(TidySpacing.xl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.gray.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .background(
+            isComplete
+                ? Color.green.opacity(TidyOpacity.ultraLight)
+                : Color.gray.opacity(TidyOpacity.light)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: TidyRadius.lg)
+                .strokeBorder(
+                    isComplete ? Color.green.opacity(0.3) : Color.clear,
+                    lineWidth: 1
+                )
+        )
+        .animation(.easeInOut(duration: 0.25), value: isComplete)
     }
+
+    private func stepCircle(number: Int, isComplete: Bool) -> some View {
+        ZStack {
+            Circle()
+                .fill(isComplete ? Color.green : Color.accentColor.opacity(0.15))
+                .frame(width: 28, height: 28)
+            if isComplete {
+                Image(systemName: "checkmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+            } else {
+                Text("\(number)")
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(.accentColor)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isComplete)
+    }
+
+    // MARK: - Status row
 
     @ViewBuilder
     private func statusRow(icon: String, color: Color, text: String) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: TidySpacing.xs) {
             Image(systemName: icon)
                 .foregroundStyle(color)
             Text(text)
