@@ -10,6 +10,7 @@ struct SettingsView: View {
     @AppStorage("quarantine_retention_days") private var retentionDays = 30
     @AppStorage("notify_ai_done") private var notifyAIDone = true
     @AppStorage("dailyScanEnabled") private var dailyScanEnabled = false
+    @AppStorage("downloads_archive_time_window") private var downloadTimeWindow = "all"
 
     @State private var showResetConfirm = false
 
@@ -56,6 +57,17 @@ struct SettingsView: View {
                 accessRow(title: "下载文件夹", target: .downloads)
                 accessRow(title: "桌面", target: .desktop)
                 accessRow(title: "文稿", target: .documents)
+
+                Picker("下载文件夹扫描范围", selection: $downloadTimeWindow) {
+                    Text("最近 7 天").tag(ArchiveTimeWindow.days7.rawValue)
+                    Text("最近 30 天").tag(ArchiveTimeWindow.days30.rawValue)
+                    Text("全部历史文件").tag(ArchiveTimeWindow.all.rawValue)
+                }
+                .pickerStyle(.segmented)
+
+                Text("选择“全部历史文件”可在首次使用时清理积压文件")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("隔离区") {
@@ -114,6 +126,9 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .navigationTitle("偏好设置")
+        .task {
+            downloadTimeWindow = appState.archiveTimeWindow.rawValue
+        }
         .confirmationDialog(
             "这将清除所有扫描记录和整理建议，不影响你的实际文件。确认重置？",
             isPresented: $showResetConfirm,
@@ -131,6 +146,17 @@ struct SettingsView: View {
                 try? appState.installLaunchAgent()
             } else {
                 try? FileManager.default.removeItem(at: plist)
+            }
+        }
+        .onChange(of: downloadTimeWindow) { newValue in
+            guard let window = ArchiveTimeWindow(rawValue: newValue) else { return }
+            Task {
+                await appState.setArchiveTimeWindow(window)
+            }
+        }
+        .onChange(of: appState.archiveTimeWindow) { newValue in
+            if downloadTimeWindow != newValue.rawValue {
+                downloadTimeWindow = newValue.rawValue
             }
         }
     }
