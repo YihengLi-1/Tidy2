@@ -14,6 +14,7 @@ final class AppState: ObservableObject {
         case duplicates
         case cleanup
         case aiFiles
+        case cases
         case installerCandidates
         case changeLog
         case settings
@@ -141,6 +142,7 @@ final class AppState: ObservableObject {
     @Published var searchResultIntelMap: [String: FileIntelligence] = [:]
     @Published var aiAnalyzedFilesCount: Int = 0
     @Published var aiIntelligenceItems: [FileIntelligence] = []
+    @Published var detectedCases: [DetectedCase] = []
     @Published var isAIAnalyzing: Bool = false
     @Published var totalFilesScanned: Int = 0
     @Published var duplicateGroups: [DuplicateGroup] = []
@@ -409,6 +411,10 @@ final class AppState: ObservableObject {
         pendingTab = .aiFiles
     }
 
+    func openCases() {
+        pendingTab = .cases
+    }
+
     func openVersionFiles() {
         pendingTab = .versionFiles
     }
@@ -430,6 +436,7 @@ final class AppState: ObservableObject {
     func refreshAIAnalysisState() async {
         await refreshAIAnalysisCount()
         await loadAIIntelligenceItems()
+        await loadDetectedCases()
         await refreshTotalFilesScanned()
         await loadDuplicateGroups()
         await loadLargeFiles()
@@ -575,6 +582,67 @@ final class AppState: ObservableObject {
         }
     }
 
+    func loadDetectedCases() async {
+        let sourceItems: [FileIntelligence]
+        if aiIntelligenceItems.isEmpty {
+            sourceItems = (try? services.store.allFileIntelligence(limit: 200)) ?? []
+            if !sourceItems.isEmpty {
+                aiIntelligenceItems = sourceItems
+            }
+        } else {
+            sourceItems = aiIntelligenceItems
+        }
+
+        let grouped = Dictionary(grouping: sourceItems) { item in
+            (item.extractedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        detectedCases = grouped
+            .filter { !$0.key.isEmpty && $0.value.count >= 2 }
+            .map { DetectedCase(id: $0.key, name: $0.key, files: $0.value) }
+            .sorted { lhs, rhs in
+                if lhs.files.count == rhs.files.count {
+                    return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+                }
+                return lhs.files.count > rhs.files.count
+            }
+    }
+
+    func organizeCaseFiles(_ cas: DetectedCase) async {
+        guard !archiveRootPath.isEmpty else {
+            statusMessage = "请先设置归档根目录"
+            return
+        }
+
+        let safeCaseName = sanitizedArchiveComponent(cas.name)
+        var moved = 0
+        for intel in cas.files {
+            let safeDocType = sanitizedArchiveComponent(intel.docType.rawValue)
+            let folder = "Cases/\(safeCaseName)/\(safeDocType)"
+            let ok = await moveFileToArchiveFolder(
+                sourcePath: intel.filePath,
+                destinationFolder: folder,
+                successMessage: nil,
+                suppressSuccessMessage: true
+            )
+            if ok {
+                moved += 1
+            }
+        }
+
+        await loadDetectedCases()
+        statusMessage = "✓ 已归档 \(cas.name) 的 \(moved) 个文件"
+    }
+
+    func runAIAnalysisNow() async {
+        isAIAnalyzing = true
+        NotificationCenter.default.post(name: .aiAnalysisStarted, object: nil)
+        await services.fileIntelligenceService.analyzeNewFiles()
+        isAIAnalyzing = false
+        NotificationCenter.default.post(name: .aiAnalysisFinished, object: nil)
+        await refreshAIAnalysisState()
+    }
+
     func markAIItemKeep(path: String) async {
         let existing = aiIntelligenceItems.first(where: { $0.filePath == path }) ?? searchResultIntelMap[path]
 
@@ -597,7 +665,10 @@ final class AppState: ObservableObject {
                 keepOrDelete: .keep,
                 reason: current.reason,
                 confidence: current.confidence,
-                analyzedAt: current.analyzedAt
+                analyzedAt: current.analyzedAt,
+                extractedName: current.extractedName,
+                documentDate: current.documentDate,
+                docType: current.docType
             )
 
             try await runBackground {
@@ -609,6 +680,7 @@ final class AppState: ObservableObject {
             }
             searchResultIntelMap[path] = updated
             statusMessage = "已保留：\(URL(fileURLWithPath: path).lastPathComponent)"
+            await loadDetectedCases()
         } catch {
             handleError(error)
         }
@@ -616,37 +688,58 @@ final class AppState: ObservableObject {
 
     @discardableResult
     func moveFileToSuggestedFolder(_ intel: FileIntelligence) async -> Bool {
-        let sourceURL = URL(fileURLWithPath: intel.filePath)
+        await moveFileToArchiveFolder(
+            sourcePath: intel.filePath,
+            destinationFolder: intel.suggestedFolder,
+            successMessage: "已移动：\(URL(fileURLWithPath: intel.filePath).lastPathComponent) → \(intel.suggestedFolder)"
+        )
+    }
+
+    @discardableResult
+    func moveFileToFolder(path: String, destinationFolder: String) async -> Bool {
+        await moveFileToArchiveFolder(
+            sourcePath: path,
+            destinationFolder: destinationFolder,
+            successMessage: "已移动：\(URL(fileURLWithPath: path).lastPathComponent) → \(destinationFolder)"
+        )
+    }
+
+    @discardableResult
+    private func moveFileToArchiveFolder(sourcePath: String,
+                                         destinationFolder: String,
+                                         successMessage: String?,
+                                         suppressSuccessMessage: Bool = false) async -> Bool {
+        let sourceURL = URL(fileURLWithPath: sourcePath)
         let filename = sourceURL.lastPathComponent
 
-        guard FileManager.default.fileExists(atPath: intel.filePath) else {
+        guard FileManager.default.fileExists(atPath: sourcePath) else {
             statusMessage = "文件已不存在：\(filename)"
             return false
         }
 
-        guard !intel.suggestedFolder.contains("..") else {
+        guard !destinationFolder.contains("..") else {
             statusMessage = "路径无效"
             return false
         }
 
-        // 1. Resolve archive root
         guard let archiveRoot = try? services.accessManager.resolveArchiveRootAccess(),
               !archiveRootPath.isEmpty else {
             statusMessage = "请先设置归档根目录"
             return false
         }
 
-        // 2. Build destination directory and file URL
-        let destDir = archiveRoot.appendingPathComponent(intel.suggestedFolder, isDirectory: true)
+        let destDir = archiveRoot.appendingPathComponent(destinationFolder, isDirectory: true)
         let archiveRootPath = archiveRoot.standardizedFileURL.path
         let destDirPath = destDir.standardizedFileURL.path
         guard destDirPath == archiveRootPath || destDirPath.hasPrefix(archiveRootPath + "/") else {
             statusMessage = "路径无效"
             return false
         }
-        var destURL = destDir.appendingPathComponent(filename)
 
-        // 3. Move the file
+        let indexedFile = try? await runBackground {
+            try self.services.store.fileByPath(sourcePath)
+        }
+
         let didStartAccess = archiveRoot.startAccessingSecurityScopedResource()
         defer {
             if didStartAccess {
@@ -655,39 +748,52 @@ final class AppState: ObservableObject {
         }
 
         do {
-            try await runBackground {
+            let destinationPath = try await runBackground {
                 let fm = FileManager.default
                 try fm.createDirectory(at: destDir, withIntermediateDirectories: true, attributes: nil)
 
-                // Resolve name conflicts: append _1, _2, etc.
-                if fm.fileExists(atPath: destURL.path) {
-                    let ext = destURL.pathExtension
-                    let base = destURL.deletingPathExtension().lastPathComponent
+                var resolvedURL = destDir.appendingPathComponent(filename)
+                if fm.fileExists(atPath: resolvedURL.path) {
+                    let ext = resolvedURL.pathExtension
+                    let base = resolvedURL.deletingPathExtension().lastPathComponent
                     var counter = 1
                     repeat {
                         let newName = ext.isEmpty ? "\(base)_\(counter)" : "\(base)_\(counter).\(ext)"
-                        destURL = destDir.appendingPathComponent(newName)
+                        resolvedURL = destDir.appendingPathComponent(newName)
                         counter += 1
-                    } while fm.fileExists(atPath: destURL.path)
+                    } while fm.fileExists(atPath: resolvedURL.path)
                 }
 
-                try fm.moveItem(at: sourceURL, to: destURL)
+                try fm.moveItem(at: sourceURL, to: resolvedURL)
+                return resolvedURL.path
             }
 
-            // 4. Record in change log
-            let txnID = "ai-move-" + UUID().uuidString
             let now = Date()
+            let modifiedAt = (
+                try? FileManager.default.attributesOfItem(atPath: destinationPath)[.modificationDate] as? Date
+            ) ?? now
+
             try? await runBackground {
+                if indexedFile != nil {
+                    try self.services.store.moveIndexedFile(
+                        oldPath: sourcePath,
+                        newPath: destinationPath,
+                        newScope: .archived,
+                        modifiedAt: modifiedAt,
+                        lastSeenAt: now
+                    )
+                }
+
                 try self.services.store.insertJournalEntry(
                     .init(
                         id: UUID().uuidString,
-                        txnID: txnID,
+                        txnID: "ai-move-" + UUID().uuidString,
                         actor: "user",
                         actionType: .move,
                         targetType: "file",
-                        targetID: intel.filePath,
-                        srcPath: intel.filePath,
-                        dstPath: destURL.path,
+                        targetID: sourcePath,
+                        srcPath: sourcePath,
+                        dstPath: destinationPath,
                         copyOrMove: "move",
                         conflictResolution: "rename",
                         verified: true,
@@ -700,26 +806,35 @@ final class AppState: ObservableObject {
                 )
             }
 
-            // 5. Remove from aiIntelligenceItems
-            aiIntelligenceItems.removeAll { $0.filePath == intel.filePath }
-            searchResults.removeAll { $0.path == intel.filePath }
-            searchResultIntelMap.removeValue(forKey: intel.filePath)
+            aiIntelligenceItems.removeAll { $0.filePath == sourcePath }
+            searchResults.removeAll { $0.path == sourcePath }
+            installerReviewCandidates.removeAll { $0.path == sourcePath }
+            searchResultIntelMap.removeValue(forKey: sourcePath)
+            pendingInboxCount = installerReviewCandidates.count
 
-            // Refresh change log
-            let updatedLog = (try? await runBackground { try self.services.store.recentChangeLog(limit: 100) }) ?? changeLogEntries
-            changeLogEntries = updatedLog
+            await loadChangeLog()
             await loadDuplicateGroups()
             await loadLargeFiles()
             await loadOldInstallers()
+            await loadDetectedCases()
 
-            // 6. Success message
-            statusMessage = "已移动：\(filename) → \(intel.suggestedFolder)"
+            if !suppressSuccessMessage {
+                statusMessage = successMessage ?? "已移动：\(filename)"
+            }
             return true
         } catch {
-            // 7. Error message
             statusMessage = "移动失败：\(error.localizedDescription)"
             return false
         }
+    }
+
+    private func sanitizedArchiveComponent(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let replaced = trimmed
+            .replacingOccurrences(of: "..", with: "")
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+        return replaced.isEmpty ? "未命名" : replaced
     }
 
     @discardableResult
@@ -4261,6 +4376,24 @@ private struct DashboardSnapshot {
     let lastScanSummary: String
     let lastScanAt: Date?
     let hasArchivedAtLeastOnce: Bool
+}
+
+struct DetectedCase: Identifiable, Hashable {
+    let id: String
+    let name: String
+    var files: [FileIntelligence]
+
+    var presentTypes: Set<DocType> {
+        Set(files.map(\.docType))
+    }
+
+    var missingImmigrationDocs: [DocType] {
+        DocType.immigrationChecklist.filter { !presentTypes.contains($0) }
+    }
+
+    var totalSize: Int64 {
+        0
+    }
 }
 
 extension Notification.Name {

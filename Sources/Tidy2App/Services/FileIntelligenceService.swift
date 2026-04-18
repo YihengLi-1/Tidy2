@@ -125,6 +125,9 @@ actor FileIntelligenceService {
     // Shared output shape
     private struct AIOutput: Decodable {
         let category: String
+        let docType: String?
+        let extractedName: String?
+        let documentDate: String?
         let summary: String
         let suggestedFolder: String
         let keepOrDelete: FileIntelligence.KeepOrDelete
@@ -137,15 +140,21 @@ actor FileIntelligenceService {
     private(set) var lastError: AIError?
 
     private let systemPrompt = """
-    你是一个文件分类助手。根据文件信息输出JSON，严格遵守以下规则：
-    1. 只输出合法JSON对象，不输出任何其他文字或markdown代码块。
-    2. 字段说明：
-       - category: 从以下枚举中选一个：发票|合同|安装包|截图|简历|技术文档|照片|其他
-       - summary: 文件一句话描述，≤80字
-       - suggestedFolder: 归档目标的相对路径，格式为"父目录/子目录"（如"财务/发票/2024"），路径不含首尾斜杠，不含用户名或绝对路径，不确定时填""
-       - keepOrDelete: keep|delete|unsure
-       - reason: 说明分类和建议的理由，≤120字
-       - confidence: 0.0-1.0之间的浮点数
+    你是专业文档分析助手，处理法律、移民、财务、医疗、HR 和个人文档。
+    输出严格合法 JSON，不加 markdown，不加任何解释文字。
+
+    字段规范：
+    - category: 文件类别中文标签（自由文本，≤10字）
+    - docType: 严格从以下枚举选一个值：护照|身份证件|驾照|出生证明|结婚证|离婚证|死亡证明|无犯罪证明|移民申请表|签证文件|授权书|法院文件|律师文件|合同|就业证明|录用通知|工资单|简历|推荐信|银行流水|税务记录|发票|收据|保险文件|地址证明|房产文件|医疗记录|处方|学历证明|成绩单|技术文档|截图|安装包|照片|其他
+    - extractedName: 文件所属人、公司或项目名称（原文，不翻译）；无法判断填 null
+    - documentDate: 文件上注明的日期，格式 yyyy-MM-dd 或 yyyy-MM 或 yyyy；无法判断填 null
+    - summary: 一句话描述文件内容，≤80字
+    - suggestedFolder: 归档路径建议（相对路径，无首尾斜杠）。
+      规则：若 extractedName 非空则用 "Cases/[姓名]/[docType]"；
+      否则按内容用通用路径如 "财务/发票/2024"。
+    - keepOrDelete: keep|delete|unsure
+    - reason: 分类依据，≤60字
+    - confidence: 0.0-1.0
     """
 
     private let analysisBatchSize = 50
@@ -368,15 +377,28 @@ actor FileIntelligenceService {
     }
 
     private func makeFileIntelligence(filePath: String, output: AIOutput) -> FileIntelligence {
-        FileIntelligence(
+        let extractedName = output.extractedName?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nilIfEmpty
+        let documentDate = output.documentDate?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nilIfEmpty
+        let docType = DocType(
+            rawValue: output.docType?.trimmingCharacters(in: .whitespacesAndNewlines) ?? DocType.other.rawValue
+        ) ?? .other
+
+        return FileIntelligence(
             filePath: filePath,
             category: output.category.trimmingCharacters(in: .whitespacesAndNewlines),
             summary: String(output.summary.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80)),
             suggestedFolder: output.suggestedFolder.trimmingCharacters(in: .whitespacesAndNewlines),
             keepOrDelete: output.keepOrDelete,
-            reason: String(output.reason.trimmingCharacters(in: .whitespacesAndNewlines).prefix(120)),
+            reason: String(output.reason.trimmingCharacters(in: .whitespacesAndNewlines).prefix(60)),
             confidence: min(max(output.confidence, 0), 1),
-            analyzedAt: Date()
+            analyzedAt: Date(),
+            extractedName: extractedName,
+            documentDate: documentDate,
+            docType: docType
         )
     }
 
@@ -389,6 +411,9 @@ actor FileIntelligenceService {
 
         let category = (raw["category"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
             .nilIfEmpty ?? "其他"
+        let docType = (raw["docType"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let extractedName = (raw["extractedName"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let documentDate = (raw["documentDate"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         let summary = (raw["summary"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let suggestedFolder = (raw["suggestedFolder"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let reason = (raw["reason"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -409,6 +434,9 @@ actor FileIntelligenceService {
 
         return AIOutput(
             category: category,
+            docType: docType,
+            extractedName: extractedName?.nilIfEmpty,
+            documentDate: documentDate?.nilIfEmpty,
             summary: summary,
             suggestedFolder: suggestedFolder,
             keepOrDelete: keepOrDelete,
