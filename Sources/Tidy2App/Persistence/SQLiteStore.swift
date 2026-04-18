@@ -1809,7 +1809,12 @@ final class SQLiteStore: @unchecked Sendable {
 
     func countAnalyzedFiles() throws -> Int {
         try syncOnQueue {
-            let sql = "SELECT COUNT(*) FROM file_ai"
+            let sql = """
+            SELECT COUNT(*) FROM file_ai a
+            JOIN files f ON f.path = a.file_path
+            WHERE f.status = 'active'
+              AND f.root_scope != 'archived'
+            """
             var stmt: OpaquePointer?
             defer { sqlite3_finalize(stmt) }
             try prepare(sql: sql, stmt: &stmt)

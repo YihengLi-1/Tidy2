@@ -663,13 +663,15 @@ final class AppState: ObservableObject {
                 sourcePath: intel.filePath,
                 destinationFolder: folder,
                 successMessage: nil,
-                suppressSuccessMessage: true
+                suppressSuccessMessage: true,
+                suppressRefresh: true
             )
             if ok {
                 moved += 1
             }
         }
 
+        await refreshAll(trigger: "organize-case-\(cas.name)")
         await loadDetectedCases()
         statusMessage = "✓ 已归档 \(cas.name) 的 \(moved) 个文件"
     }
