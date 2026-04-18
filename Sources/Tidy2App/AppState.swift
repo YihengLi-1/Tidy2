@@ -1859,7 +1859,7 @@ final class AppState: ObservableObject {
 
             if result.succeeded == 0 {
                 let reason = result.firstError?.trimmingCharacters(in: .whitespacesAndNewlines)
-                let message = "整理失败：\(reason?.isEmpty == false ? reason! : "没有成功执行任何文件操作。")"
+                let message = "整理失败：\(reason ?? "没有成功执行任何文件操作。")"
                 statusMessage = message
                 appendRuntimeLog(
                     "[AppState] apply_failed bundle_id=\(bundleID) txn_id=\(result.txnId) reason=\(message)"
@@ -3646,36 +3646,7 @@ final class AppState: ObservableObject {
         Task.detached(priority: .utility) {
             let timestamp = ISO8601DateFormatter().string(from: Date())
             let line = "[\(timestamp)] \(message)\n"
-            print(line.trimmingCharacters(in: .newlines))
-
-            do {
-                let fm = FileManager.default
-                let appSupport = try fm.url(
-                    for: .applicationSupportDirectory,
-                    in: .userDomainMask,
-                    appropriateFor: nil,
-                    create: true
-                ).appendingPathComponent("Tidy2", isDirectory: true)
-
-                let logFolder = appSupport.appendingPathComponent("Logs", isDirectory: true)
-                if !fm.fileExists(atPath: logFolder.path) {
-                    try fm.createDirectory(at: logFolder, withIntermediateDirectories: true)
-                }
-
-                let logURL = logFolder.appendingPathComponent("runtime.log", isDirectory: false)
-                if fm.fileExists(atPath: logURL.path) {
-                    let handle = try FileHandle(forWritingTo: logURL)
-                    defer { try? handle.close() }
-                    handle.seekToEndOfFile()
-                    if let data = line.data(using: .utf8) {
-                        handle.write(data)
-                    }
-                } else {
-                    try line.write(to: logURL, atomically: true, encoding: .utf8)
-                }
-            } catch {
-                print("[AppState] export runtime.log write failed: \(error.localizedDescription)")
-            }
+            RuntimeLog.append(line.trimmingCharacters(in: .newlines))
         }
     }
 
@@ -3924,36 +3895,7 @@ final class AppState: ObservableObject {
     private func appendRuntimeLog(_ message: String) {
         let timestamp = ISO8601DateFormatter().string(from: Date())
         let line = "[\(timestamp)] \(message)\n"
-        print(line.trimmingCharacters(in: .newlines))
-
-        do {
-            let fm = FileManager.default
-            let appSupport = try fm.url(
-                for: .applicationSupportDirectory,
-                in: .userDomainMask,
-                appropriateFor: nil,
-                create: true
-            ).appendingPathComponent("Tidy2", isDirectory: true)
-
-            let logFolder = appSupport.appendingPathComponent("Logs", isDirectory: true)
-            if !fm.fileExists(atPath: logFolder.path) {
-                try fm.createDirectory(at: logFolder, withIntermediateDirectories: true)
-            }
-
-            let logURL = logFolder.appendingPathComponent("runtime.log", isDirectory: false)
-            if fm.fileExists(atPath: logURL.path) {
-                let handle = try FileHandle(forWritingTo: logURL)
-                defer { try? handle.close() }
-                handle.seekToEndOfFile()
-                if let data = line.data(using: .utf8) {
-                    handle.write(data)
-                }
-            } else {
-                try line.write(to: logURL, atomically: true, encoding: .utf8)
-            }
-        } catch {
-            print("[AppState] runtime.log write failed: \(error.localizedDescription)")
-        }
+        RuntimeLog.append(line.trimmingCharacters(in: .newlines))
     }
 
     private func hintText(_ hint: AccessActionHint) -> String {
