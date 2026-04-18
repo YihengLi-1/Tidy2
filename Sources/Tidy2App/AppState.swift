@@ -604,8 +604,27 @@ final class AppState: ObservableObject {
             sourceItems = aiIntelligenceItems
         }
 
-        let grouped = Dictionary(grouping: sourceItems) { item in
+        let items = sourceItems.filter { item in
+            !(item.extractedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        let grouped = Dictionary(grouping: items) { item in
             (item.extractedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        let allTypes = Set(items.map(\.docType))
+        let templateID: String
+        if allTypes.contains(.passport) || allTypes.contains(.immigrationForm) || allTypes.contains(.visaDoc) {
+            templateID = "immigration"
+        } else if allTypes.contains(.resume) || allTypes.contains(.offerLetter) {
+            templateID = "hr_onboarding"
+        } else if allTypes.contains(.propertyDoc) || allTypes.contains(.contract) {
+            templateID = "real_estate"
+        } else if allTypes.contains(.invoice) || allTypes.contains(.taxRecord) {
+            templateID = "finance_audit"
+        } else if allTypes.contains(.medicalRecord) || allTypes.contains(.prescription) {
+            templateID = "medical"
+        } else {
+            templateID = "immigration"
         }
 
         detectedCases = grouped
@@ -617,6 +636,11 @@ final class AppState: ObservableObject {
                 }
                 return lhs.files.count > rhs.files.count
             }
+
+        if let template = ChecklistTemplate.presets.first(where: { $0.id == templateID }) {
+            activeChecklist = template
+            UserDefaults.standard.set(template.id, forKey: activeChecklistTemplateKey)
+        }
     }
 
     func organizeCaseFiles(_ cas: DetectedCase) async {
