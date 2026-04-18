@@ -70,6 +70,8 @@ struct ChangeLogView: View {
                             }
                         }
                         .padding(.vertical, 4)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(entry.title), \(DateHelper.relativeShort(entry.createdAt))")
                     }
                 }
                 .listStyle(.inset)

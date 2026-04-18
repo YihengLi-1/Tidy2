@@ -164,9 +164,10 @@ struct QuarantineView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         ForEach(appState.quarantineItems) { item in
+                            let fileName = URL(fileURLWithPath: item.originalPath).lastPathComponent
                             HStack(alignment: .top, spacing: 10) {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(URL(fileURLWithPath: item.originalPath).lastPathComponent)
+                                    Text(fileName)
                                         .font(.headline)
                                     Text(compactPath(item.originalPath))
                                         .font(.caption)
@@ -185,12 +186,14 @@ struct QuarantineView: View {
                                         }
                                         .buttonStyle(.bordered)
                                         .controlSize(.small)
+                                        .accessibilityLabel("在 Finder 中显示 \(fileName)")
 
                                         Button("恢复") {
                                             Task { await appState.restoreFromQuarantine(item) }
                                         }
                                         .buttonStyle(.borderedProminent)
                                         .controlSize(.large)
+                                        .accessibilityLabel("恢复 \(fileName) 到原始位置")
                                     }
                                 }
                             }
@@ -198,6 +201,27 @@ struct QuarantineView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.gray.opacity(0.07))
                             .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .tidyFileRowAccessibility(
+                                name: fileName,
+                                value: "隔离于 \(DateHelper.relativeShort(item.quarantinedAt))"
+                            )
+                            .contextMenu {
+                                Button("在 Finder 中显示（隔离位置）") {
+                                    NSWorkspace.shared.activateFileViewerSelecting(
+                                        [URL(fileURLWithPath: item.quarantinePath)]
+                                    )
+                                }
+                                Button("拷贝原始路径") {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(item.originalPath, forType: .string)
+                                }
+                                if appState.quarantineFilter == .active {
+                                    Divider()
+                                    Button("恢复到原始位置") {
+                                        Task { await appState.restoreFromQuarantine(item) }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
