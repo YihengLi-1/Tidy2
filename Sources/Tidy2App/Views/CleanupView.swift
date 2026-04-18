@@ -3,6 +3,9 @@ import SwiftUI
 
 struct CleanupView: View {
     @EnvironmentObject private var appState: AppState
+    @State private var trashingPaths: Set<String> = []
+    @State private var resultMessage: String? = nil
+    @State private var resultIsError: Bool = false
 
     private var hasPrimarySuggestions: Bool {
         !appState.largeFiles.isEmpty || !appState.oldInstallers.isEmpty
@@ -24,6 +27,21 @@ struct CleanupView: View {
                 )
             } else {
                 VStack(alignment: .leading, spacing: 16) {
+                    if let msg = resultMessage {
+                        HStack(spacing: 8) {
+                            Image(systemName: resultIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                                .foregroundStyle(resultIsError ? Color.orange : Color.green)
+                            Text(msg)
+                                .font(.subheadline.weight(.medium))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(resultIsError ? Color.orange.opacity(0.10) : Color.green.opacity(0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
                     reclaimableSpaceCard
 
                     List {
@@ -37,11 +55,17 @@ struct CleanupView: View {
                                         .buttonStyle(.bordered)
                                         .controlSize(.small)
 
-                                        Button("移到废纸篓") {
-                                            trashAndReload(file.path)
+                                        if trashingPaths.contains(file.path) {
+                                            ProgressView()
+                                                .controlSize(.small)
+                                                .frame(width: 60)
+                                        } else {
+                                            Button("移到废纸篓") {
+                                                trashAndReload(file.path)
+                                            }
+                                            .buttonStyle(.bordered)
+                                            .controlSize(.small)
                                         }
-                                        .buttonStyle(.bordered)
-                                        .controlSize(.small)
                                     }
                                 }
                             }
@@ -57,11 +81,17 @@ struct CleanupView: View {
                                         .buttonStyle(.bordered)
                                         .controlSize(.small)
 
-                                        Button("移到废纸篓") {
-                                            trashAndReload(file.path)
+                                        if trashingPaths.contains(file.path) {
+                                            ProgressView()
+                                                .controlSize(.small)
+                                                .frame(width: 60)
+                                        } else {
+                                            Button("移到废纸篓") {
+                                                trashAndReload(file.path)
+                                            }
+                                            .buttonStyle(.bordered)
+                                            .controlSize(.small)
                                         }
-                                        .buttonStyle(.bordered)
-                                        .controlSize(.small)
                                     }
                                 }
                             }
@@ -91,6 +121,7 @@ struct CleanupView: View {
                     .listStyle(.inset)
                 }
                 .padding(20)
+                .animation(.easeInOut(duration: 0.25), value: resultMessage)
             }
         }
         .navigationTitle("清理建议")
@@ -132,13 +163,33 @@ struct CleanupView: View {
     }
 
     private func trashAndReload(_ path: String) {
+        guard !trashingPaths.contains(path) else { return }
+        trashingPaths.insert(path)
         Task {
             let moved = await appState.moveFileToTrash(path: path)
+            // Always reload the lists regardless of success/failure —
+            // files may already be gone on disk and need to be cleared from the list.
+            await appState.loadLargeFiles()
+            await appState.loadOldInstallers()
+            await appState.loadDuplicateGroups()
+            trashingPaths.remove(path)
             if moved {
-                await appState.loadLargeFiles()
-                await appState.loadOldInstallers()
-                await appState.loadDuplicateGroups()
+                showResult("已移到废纸篓", isError: false)
+            } else {
+                let msg = appState.statusMessage.isEmpty
+                    ? "文件不存在或无法访问，列表已刷新"
+                    : appState.statusMessage
+                showResult(msg, isError: true)
             }
+        }
+    }
+
+    private func showResult(_ msg: String, isError: Bool) {
+        resultMessage = msg
+        resultIsError = isError
+        Task {
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            resultMessage = nil
         }
     }
 }

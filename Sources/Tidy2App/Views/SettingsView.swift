@@ -143,7 +143,11 @@ struct SettingsView: View {
             let plist = FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent("Library/LaunchAgents/com.tidy2.dailyscan.plist")
             if enabled {
-                try? appState.installLaunchAgent()
+                do {
+                    try appState.installLaunchAgent()
+                } catch {
+                    appState.statusMessage = "无法安装每日扫描：\(error.localizedDescription)"
+                }
             } else {
                 try? FileManager.default.removeItem(at: plist)
             }
