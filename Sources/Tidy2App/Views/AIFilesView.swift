@@ -76,11 +76,11 @@ struct AIFilesView: View {
             Button("确认移动") {
                 let items = movableKeepItems
                 Task {
-                    var moved = 0
-                    for intel in items {
-                        if await appState.moveFileToSuggestedFolder(intel) { moved += 1 }
-                    }
-                    showResult("已批量移动 \(moved) 个文件", isError: moved == 0)
+                    let moved = await appState.bulkMoveToSuggestedFolders(items)
+                    showResult(
+                        moved > 0 ? "已批量移动 \(moved) 个文件" : "没有文件被移动，请检查整理文件夹设置",
+                        isError: moved == 0
+                    )
                 }
             }
             Button("取消", role: .cancel) {}
