@@ -14,6 +14,7 @@ struct RootView: View {
                     sidebarRow(.duplicates,         title: "重复文件",      icon: "doc.on.doc",        badge: appState.duplicateGroups.count)
                     sidebarRow(.bundles,            title: "整理建议",      icon: "square.stack.3d.up", badge: appState.pendingBundlesCount)
                     sidebarRow(.aiFiles,            title: "AI 智能分析",   icon: "brain",              badge: aiDeleteSuggestionCount, badgeColor: aiDeleteSuggestionCount > 0 ? .red : nil)
+                    sidebarRow(.cases,             title: "案例归档",      icon: "person.2.fill")
                 }
 
                 Section("工具") {
@@ -82,6 +83,7 @@ struct RootView: View {
             case .search:               switchTo(.search)
             case .cleanup:              switchTo(.cleanup)
             case .aiFiles:              switchTo(.aiFiles)
+            case .cases:                switchTo(.cases)
             case .installerCandidates:  switchTo(.installerCandidates)
             case .changeLog:            switchTo(.changeLog)
             case .settings:             switchTo(.settings)
@@ -153,6 +155,7 @@ struct RootView: View {
         case .duplicates:           DuplicatesView()
         case .cleanup:              CleanupView()
         case .aiFiles:              AIFilesView()
+        case .cases:                CasesView()
         case .versionFiles:         VersionFilesView()
         case .installerCandidates:  InstallerCandidatesView()
         case .bundles:              BundlesView()
@@ -174,6 +177,7 @@ struct RootView: View {
         case .duplicates:           DuplicatesView()
         case .cleanup:              CleanupView()
         case .aiFiles:              AIFilesView()
+        case .cases:                CasesView()
         case .versionFiles:         VersionFilesView()
         case .installerCandidates:  InstallerCandidatesView()
         case .changeLog:            ChangeLogView()
@@ -244,7 +248,7 @@ struct RootView: View {
 // MARK: - Sidebar items enum
 
 private enum SidebarItem: Hashable {
-    case home, search, duplicates, cleanup, aiFiles, versionFiles
+    case home, search, duplicates, cleanup, aiFiles, cases, versionFiles
     case installerCandidates, bundles, quarantine, changeLog
     case settings, rules, metrics
 }

@@ -110,7 +110,7 @@ final class SQLiteStore: @unchecked Sendable {
     private let queueTag = UUID().uuidString
     private let dbURL: URL
     private var safeModeEnabled = false
-    private let schemaVersion = 3
+    private let schemaVersion = 4
 
     init() throws {
         let fm = FileManager.default
@@ -327,7 +327,10 @@ final class SQLiteStore: @unchecked Sendable {
             keep_or_delete TEXT NOT NULL DEFAULT 'unsure',
             reason TEXT NOT NULL DEFAULT '',
             confidence REAL NOT NULL DEFAULT 0.0,
-            analyzed_at REAL NOT NULL
+            analyzed_at REAL NOT NULL,
+            extracted_name TEXT,
+            document_date TEXT,
+            doc_type TEXT NOT NULL DEFAULT '其他'
         );
 
         CREATE VIRTUAL TABLE IF NOT EXISTS pdf_text_fts USING fts5(
@@ -371,6 +374,9 @@ final class SQLiteStore: @unchecked Sendable {
         try ensureColumn(table: "journal_entries", column: "undoable", definition: "INTEGER NOT NULL DEFAULT 1")
         try ensureColumn(table: "settings", column: "value_blob", definition: "BLOB")
         try ensureColumn(table: "metrics_weekly", column: "missing_skipped_count", definition: "INTEGER NOT NULL DEFAULT 0")
+        try ensureColumn(table: "file_ai", column: "extracted_name", definition: "TEXT")
+        try ensureColumn(table: "file_ai", column: "document_date", definition: "TEXT")
+        try ensureColumn(table: "file_ai", column: "doc_type", definition: "TEXT NOT NULL DEFAULT '其他'")
         try execute(sql: "UPDATE files SET content_hash = sha256 WHERE (content_hash IS NULL OR content_hash = '') AND sha256 IS NOT NULL AND sha256 != ''")
         try execute(sql: "CREATE INDEX IF NOT EXISTS idx_files_content_hash ON files(content_hash)")
         try execute(sql: "PRAGMA user_version = \(schemaVersion)")
@@ -1563,9 +1569,12 @@ final class SQLiteStore: @unchecked Sendable {
                 keep_or_delete,
                 reason,
                 confidence,
-                analyzed_at
+                analyzed_at,
+                extracted_name,
+                document_date,
+                doc_type
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(file_path) DO UPDATE SET
                 category = excluded.category,
                 summary = excluded.summary,
@@ -1573,7 +1582,10 @@ final class SQLiteStore: @unchecked Sendable {
                 keep_or_delete = excluded.keep_or_delete,
                 reason = excluded.reason,
                 confidence = excluded.confidence,
-                analyzed_at = excluded.analyzed_at
+                analyzed_at = excluded.analyzed_at,
+                extracted_name = excluded.extracted_name,
+                document_date = excluded.document_date,
+                doc_type = excluded.doc_type
             """
             var stmt: OpaquePointer?
             defer { sqlite3_finalize(stmt) }
@@ -1586,6 +1598,19 @@ final class SQLiteStore: @unchecked Sendable {
             try bindText(intelligence.reason, index: 6, stmt: stmt)
             sqlite3_bind_double(stmt, 7, intelligence.confidence)
             sqlite3_bind_double(stmt, 8, intelligence.analyzedAt.timeIntervalSince1970)
+            if let extractedName = intelligence.extractedName,
+               !extractedName.isEmpty {
+                try bindText(extractedName, index: 9, stmt: stmt)
+            } else {
+                sqlite3_bind_null(stmt, 9)
+            }
+            if let documentDate = intelligence.documentDate,
+               !documentDate.isEmpty {
+                try bindText(documentDate, index: 10, stmt: stmt)
+            } else {
+                sqlite3_bind_null(stmt, 10)
+            }
+            try bindText(intelligence.docType.rawValue, index: 11, stmt: stmt)
             try stepDone(stmt)
         }
     }
@@ -1593,7 +1618,8 @@ final class SQLiteStore: @unchecked Sendable {
     func loadFileIntelligence(path: String) throws -> FileIntelligence? {
         try syncOnQueue {
             let sql = """
-            SELECT file_path, category, summary, suggested_folder, keep_or_delete, reason, confidence, analyzed_at
+            SELECT file_path, category, summary, suggested_folder, keep_or_delete, reason, confidence, analyzed_at,
+                   extracted_name, document_date, doc_type
             FROM file_ai
             WHERE file_path = ?
             LIMIT 1
@@ -1618,7 +1644,8 @@ final class SQLiteStore: @unchecked Sendable {
             guard limit > 0 else { return [] }
 
             let sql = """
-            SELECT file_path, category, summary, suggested_folder, keep_or_delete, reason, confidence, analyzed_at
+            SELECT file_path, category, summary, suggested_folder, keep_or_delete, reason, confidence, analyzed_at,
+                   extracted_name, document_date, doc_type
             FROM file_ai
             ORDER BY analyzed_at DESC
             LIMIT ?
@@ -1708,7 +1735,8 @@ final class SQLiteStore: @unchecked Sendable {
             guard !paths.isEmpty else { return [:] }
             let placeholders = paths.map { _ in "?" }.joined(separator: ",")
             let sql = """
-            SELECT file_path, category, summary, suggested_folder, keep_or_delete, reason, confidence, analyzed_at
+            SELECT file_path, category, summary, suggested_folder, keep_or_delete, reason, confidence, analyzed_at,
+                   extracted_name, document_date, doc_type
             FROM file_ai
             WHERE file_path IN (\(placeholders))
             """
@@ -3550,6 +3578,15 @@ final class SQLiteStore: @unchecked Sendable {
         let reason = columnText(stmt, index: 5) ?? ""
         let confidence = sqlite3_column_double(stmt, 6)
         let analyzedAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 7))
+        let extractedName: String? = {
+            guard let value = columnText(stmt, index: 8), !value.isEmpty else { return nil }
+            return value
+        }()
+        let documentDate: String? = {
+            guard let value = columnText(stmt, index: 9), !value.isEmpty else { return nil }
+            return value
+        }()
+        let docTypeRaw = columnText(stmt, index: 10) ?? DocType.other.rawValue
 
         return FileIntelligence(
             filePath: filePath,
@@ -3559,7 +3596,10 @@ final class SQLiteStore: @unchecked Sendable {
             keepOrDelete: FileIntelligence.KeepOrDelete(rawValue: keepRaw) ?? .unsure,
             reason: reason,
             confidence: confidence,
-            analyzedAt: analyzedAt
+            analyzedAt: analyzedAt,
+            extractedName: extractedName,
+            documentDate: documentDate,
+            docType: DocType(rawValue: docTypeRaw) ?? .other
         )
     }
 
@@ -3826,6 +3866,20 @@ final class SQLiteStore: @unchecked Sendable {
         sqlite3_bind_double(stmt, 6, modifiedAt.timeIntervalSince1970)
         sqlite3_bind_double(stmt, 7, lastSeenAt.timeIntervalSince1970)
         try bindText(oldPath, index: 8, stmt: stmt)
+        try stepDone(stmt)
+
+        try updateLinkedPath(table: "pdf_text_index", oldPath: oldPath, newPath: newPath)
+        try updateLinkedPath(table: "pdf_text_fts", oldPath: oldPath, newPath: newPath)
+        try updateLinkedPath(table: "file_ai", oldPath: oldPath, newPath: newPath)
+    }
+
+    private func updateLinkedPath(table: String, oldPath: String, newPath: String) throws {
+        let sql = "UPDATE \(table) SET file_path = ? WHERE file_path = ?"
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        try prepare(sql: sql, stmt: &stmt)
+        try bindText(newPath, index: 1, stmt: stmt)
+        try bindText(oldPath, index: 2, stmt: stmt)
         try stepDone(stmt)
     }
 
