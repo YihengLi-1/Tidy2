@@ -2,11 +2,14 @@ import SwiftUI
 
 struct OnboardingView: View {
     @EnvironmentObject private var appState: AppState
-    @State private var apiKey: String = FileIntelligenceService.readAPIKeyFromKeychain() ?? ""
+    @State private var geminiKey: String = FileIntelligenceService.readGeminiAPIKeyFromKeychain() ?? ""
+    @State private var claudeKey: String = FileIntelligenceService.readAPIKeyFromKeychain() ?? ""
     @State private var isCompleting = false
 
     // Track which steps are expanded for progressive disclosure
     @State private var expandedStep: Int? = 1
+
+    private var hasAnyKey: Bool { !geminiKey.isEmpty || !claudeKey.isEmpty }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -125,23 +128,62 @@ struct OnboardingView: View {
 
                     stepCard(
                         step: 5,
-                        title: "设置 Claude API Key（可选）",
-                        subtitle: "用于 AI 智能分类文件内容、生成整理建议。没有 key 仍可使用基础功能。",
+                        title: "开启 AI 分析（免费）",
+                        subtitle: "Tidy 用 AI 读懂文件内容，生成精准整理建议。Gemini Flash 完全免费，只需 Google 账号。",
                         isRequired: false,
-                        isComplete: !apiKey.isEmpty
+                        isComplete: hasAnyKey
                     ) {
-                        SecureField("sk-ant-...", text: $apiKey)
-                            .textFieldStyle(.roundedBorder)
-                            .onChange(of: apiKey) { newValue in
-                                FileIntelligenceService.saveAPIKey(newValue)
+                        // Gemini (free, default)
+                        VStack(alignment: .leading, spacing: TidySpacing.sm) {
+                            HStack(spacing: TidySpacing.sm) {
+                                Image(systemName: "sparkles")
+                                    .foregroundStyle(.blue)
+                                Text("Gemini Flash（推荐 · 免费）")
+                                    .font(.subheadline.weight(.medium))
+                                Text("免费")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 5).padding(.vertical, 2)
+                                    .background(Color.green)
+                                    .clipShape(Capsule())
                             }
-                        if !apiKey.isEmpty {
-                            statusRow(icon: "checkmark.circle.fill", color: .green,
-                                      text: "API Key 已设置")
-                        } else {
-                            Link("获取 API Key → console.anthropic.com",
-                                 destination: URL(string: "https://console.anthropic.com")!)
-                                .font(.caption)
+
+                            SecureField("AIza...", text: $geminiKey)
+                                .textFieldStyle(.roundedBorder)
+                                .onChange(of: geminiKey) { newValue in
+                                    FileIntelligenceService.saveGeminiAPIKey(newValue)
+                                    if !newValue.isEmpty { AIProvider.setCurrent(.gemini) }
+                                }
+
+                            if geminiKey.isEmpty {
+                                Link("免费获取 Key → aistudio.google.com/apikey",
+                                     destination: URL(string: "https://aistudio.google.com/apikey")!)
+                                    .font(.caption)
+                            } else {
+                                statusRow(icon: "checkmark.circle.fill", color: .green,
+                                          text: "Gemini API Key 已设置")
+                            }
+
+                            Divider()
+
+                            // Claude (paid, optional)
+                            DisclosureGroup("也有 Claude API Key？") {
+                                VStack(alignment: .leading, spacing: TidySpacing.xs) {
+                                    SecureField("sk-ant-...", text: $claudeKey)
+                                        .textFieldStyle(.roundedBorder)
+                                        .onChange(of: claudeKey) { newValue in
+                                            FileIntelligenceService.saveAPIKey(newValue)
+                                            if !newValue.isEmpty { AIProvider.setCurrent(.claude) }
+                                        }
+                                    if !claudeKey.isEmpty {
+                                        statusRow(icon: "checkmark.circle.fill", color: .green,
+                                                  text: "Claude API Key 已设置")
+                                    }
+                                }
+                                .padding(.top, TidySpacing.xs)
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         }
                     }
 
@@ -246,7 +288,7 @@ struct OnboardingView: View {
         if !appState.archiveRootPath.isEmpty { count += 1 }
         if !appState.documentsFolderPath.isEmpty { count += 1 }
         if !appState.desktopFolderPath.isEmpty { count += 1 }
-        if !apiKey.isEmpty { count += 1 }
+        if hasAnyKey { count += 1 }
         return count
     }
 

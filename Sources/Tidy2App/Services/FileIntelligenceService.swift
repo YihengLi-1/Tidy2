@@ -9,12 +9,13 @@ import PDFKit
 // MARK: - Provider
 
 enum AIProvider: String {
+    case gemini = "gemini"
     case ollama = "ollama"
     case claude = "claude"
 
     static var current: AIProvider {
-        let raw = UserDefaults.standard.string(forKey: "ai_provider") ?? "ollama"
-        return AIProvider(rawValue: raw) ?? .ollama
+        let raw = UserDefaults.standard.string(forKey: "ai_provider") ?? "gemini"
+        return AIProvider(rawValue: raw) ?? .gemini
     }
 
     static func setCurrent(_ p: AIProvider) {
@@ -23,7 +24,8 @@ enum AIProvider: String {
 
     var displayName: String {
         switch self {
-        case .ollama: return "Ollama（本地免费）"
+        case .gemini: return "Gemini Flash（免费）"
+        case .ollama: return "Ollama（本地）"
         case .claude: return "Claude API（付费）"
         }
     }
@@ -82,6 +84,7 @@ actor FileIntelligenceService {
     private enum KeychainKey {
         static let service = "com.tidy2.app"
         static let claudeAPIKey = "claude_api_key"
+        static let geminiAPIKey = "gemini_api_key"
     }
 
     // MARK: Ollama (OpenAI-compatible /v1/chat/completions)
@@ -217,10 +220,9 @@ actor FileIntelligenceService {
 
     func runBatchAnalysis() async {
         let provider = AIProvider.current
-        // For Claude require a key; for Ollama just try
-        if provider == .claude {
-            guard !claudeAPIKey.isEmpty else { return }
-        }
+        // Require a key for cloud providers
+        if provider == .claude { guard !claudeAPIKey.isEmpty else { return } }
+        if provider == .gemini { guard !geminiAPIKey.isEmpty else { return } }
 
         do {
             lastError = nil
@@ -276,6 +278,7 @@ actor FileIntelligenceService {
                                         extractedText: pdfText,
                                         existingFolders: existingFolders)
         switch AIProvider.current {
+        case .gemini: return await analyzeWithGemini(filePath: filePath, userPrompt: userPrompt)
         case .ollama: return await analyzeWithOllama(filePath: filePath, userPrompt: userPrompt)
         case .claude: return await analyzeWithClaude(filePath: filePath, userPrompt: userPrompt)
         }
@@ -337,6 +340,92 @@ actor FileIntelligenceService {
         } catch {
             RuntimeLog.append("[AI] ollama_failed path=\(filePath) error=\(error.localizedDescription)")
             lastError = .analysisFailed("AI 分析失败：\(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    // MARK: - Gemini
+
+    private var geminiAPIKey: String {
+        Self.readGeminiAPIKeyFromKeychain()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
+    private func analyzeWithGemini(filePath: String, userPrompt: String) async -> FileIntelligence? {
+        let key = geminiAPIKey
+        guard !key.isEmpty else { return nil }
+
+        let model = "gemini-1.5-flash"
+        guard let endpoint = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(key)") else { return nil }
+
+        // Build parts: optionally include image, then text
+        let ext = URL(fileURLWithPath: filePath).pathExtension.lowercased()
+        var parts: [[String: Any]] = []
+        if let imageData = extractImageData(filePath: filePath, ext: ext) {
+            parts.append([
+                "inline_data": [
+                    "mime_type": imageData.mediaType,
+                    "data": imageData.data
+                ]
+            ])
+        }
+        parts.append(["text": userPrompt])
+
+        let body: [String: Any] = [
+            "system_instruction": ["parts": [["text": systemPrompt]]],
+            "contents": [["role": "user", "parts": parts]],
+            "generationConfig": [
+                "temperature": 0.1,
+                "maxOutputTokens": 512,
+                "responseMimeType": "application/json"
+            ]
+        ]
+
+        var req = URLRequest(url: endpoint)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        do {
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, response) = try await session.data(for: req)
+            guard let http = response as? HTTPURLResponse else { return nil }
+
+            switch http.statusCode {
+            case 200..<300:
+                lastError = nil
+            case 400:
+                RuntimeLog.append("[AI] gemini bad request path=\(filePath)")
+                lastError = .analysisFailed("Gemini 请求错误，请检查 API Key")
+                return nil
+            case 401, 403:
+                RuntimeLog.append("[AI] gemini auth_failed")
+                lastError = .invalidAPIKey
+                return nil
+            case 429:
+                RuntimeLog.append("[AI] gemini rate_limited")
+                lastError = .rateLimited
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                return nil
+            default:
+                RuntimeLog.append("[AI] gemini_failed status=\(http.statusCode) path=\(filePath)")
+                lastError = .analysisFailed("Gemini 分析失败：HTTP \(http.statusCode)")
+                return nil
+            }
+
+            // Parse Gemini response: candidates[0].content.parts[0].text
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let candidates = json["candidates"] as? [[String: Any]],
+                  let first = candidates.first,
+                  let content = first["content"] as? [String: Any],
+                  let responseParts = content["parts"] as? [[String: Any]],
+                  let text = responseParts.first?["text"] as? String else {
+                RuntimeLog.append("[AI] gemini parse_failed path=\(filePath)")
+                return nil
+            }
+
+            return parseOutput(text: text, filePath: filePath)
+        } catch {
+            RuntimeLog.append("[AI] gemini_failed path=\(filePath) error=\(error.localizedDescription)")
+            lastError = .analysisFailed("Gemini 分析失败：\(error.localizedDescription)")
             return nil
         }
     }
@@ -684,6 +773,37 @@ actor FileIntelligenceService {
     }
 
     static func hasStoredAPIKey() -> Bool { readAPIKeyFromKeychain() != nil }
+
+    // MARK: Gemini keychain helpers
+
+    static func readGeminiAPIKeyFromKeychain() -> String? {
+        let q: [CFString: Any] = [kSecClass: kSecClassGenericPassword,
+                                   kSecAttrService: KeychainKey.service,
+                                   kSecAttrAccount: KeychainKey.geminiAPIKey,
+                                   kSecReturnData: true, kSecMatchLimit: kSecMatchLimitOne]
+        var r: AnyObject?
+        guard SecItemCopyMatching(q as CFDictionary, &r) == errSecSuccess,
+              let data = r as? Data,
+              let key = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !key.isEmpty else { return nil }
+        return key
+    }
+
+    static func saveGeminiAPIKey(_ key: String) {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        let del: [CFString: Any] = [kSecClass: kSecClassGenericPassword,
+                                     kSecAttrService: KeychainKey.service,
+                                     kSecAttrAccount: KeychainKey.geminiAPIKey]
+        SecItemDelete(del as CFDictionary)
+        guard !trimmed.isEmpty else { return }
+        let add: [CFString: Any] = [kSecClass: kSecClassGenericPassword,
+                                     kSecAttrService: KeychainKey.service,
+                                     kSecAttrAccount: KeychainKey.geminiAPIKey,
+                                     kSecValueData: Data(trimmed.utf8)]
+        SecItemAdd(add as CFDictionary, nil)
+    }
+
+    static func hasGeminiAPIKey() -> Bool { readGeminiAPIKeyFromKeychain() != nil }
 
     private static func purgeLegacyAPIKeyFromDefaults() {
         UserDefaults.standard.removeObject(forKey: KeychainKey.claudeAPIKey)

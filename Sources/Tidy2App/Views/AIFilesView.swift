@@ -362,39 +362,55 @@ struct AIFilesView: View {
                 get: { AIProvider.current },
                 set: { AIProvider.setCurrent($0) }
             )) {
-                Text("Ollama（本地免费）").tag(AIProvider.ollama)
-                Text("Claude API（付费）").tag(AIProvider.claude)
+                Text("Gemini（免费）").tag(AIProvider.gemini)
+                Text("Ollama（本地）").tag(AIProvider.ollama)
+                Text("Claude（付费）").tag(AIProvider.claude)
             }
             .pickerStyle(.segmented)
 
-            if AIProvider.current == .claude {
-                let apiKeyBinding = Binding<String>(
+            switch AIProvider.current {
+            case .gemini:
+                let geminiBinding = Binding<String>(
+                    get: { FileIntelligenceService.readGeminiAPIKeyFromKeychain() ?? "" },
+                    set: { FileIntelligenceService.saveGeminiAPIKey($0) }
+                )
+                VStack(alignment: .leading, spacing: TidySpacing.xs) {
+                    SecureField("Gemini API Key (AIza...)", text: geminiBinding)
+                        .textFieldStyle(.roundedBorder)
+                    Link("免费获取 → aistudio.google.com/apikey",
+                         destination: URL(string: "https://aistudio.google.com/apikey")!)
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                }
+            case .claude:
+                let claudeBinding = Binding<String>(
                     get: { FileIntelligenceService.readAPIKeyFromKeychain() ?? "" },
                     set: { FileIntelligenceService.saveAPIKey($0) }
                 )
-                SecureField("Claude API Key (sk-ant-...)", text: apiKeyBinding)
+                SecureField("Claude API Key (sk-ant-...)", text: claudeBinding)
                     .textFieldStyle(.roundedBorder)
-            } else {
-                HStack(spacing: TidySpacing.sm) {
-                    Circle()
-                        .fill(ollamaStatusColor)
-                        .frame(width: 8, height: 8)
-                    Text(ollamaStatusText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Button("刷新") { Task { await checkOllamaStatus() } }
-                        .buttonStyle(.borderless)
-                        .font(.caption)
-                }
-
-                let modelBinding = Binding<String>(
-                    get: { UserDefaults.standard.string(forKey: "ollama_model") ?? "qwen2.5:3b" },
-                    set: { UserDefaults.standard.set($0, forKey: "ollama_model") }
-                )
-                HStack {
-                    Text("模型")
-                    TextField("模型名称", text: modelBinding)
-                        .textFieldStyle(.roundedBorder)
+            case .ollama:
+                VStack(alignment: .leading, spacing: TidySpacing.xs) {
+                    HStack(spacing: TidySpacing.sm) {
+                        Circle()
+                            .fill(ollamaStatusColor)
+                            .frame(width: 8, height: 8)
+                        Text(ollamaStatusText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("刷新") { Task { await checkOllamaStatus() } }
+                            .buttonStyle(.borderless)
+                            .font(.caption)
+                    }
+                    let modelBinding = Binding<String>(
+                        get: { UserDefaults.standard.string(forKey: "ollama_model") ?? "qwen2.5:3b" },
+                        set: { UserDefaults.standard.set($0, forKey: "ollama_model") }
+                    )
+                    HStack {
+                        Text("模型")
+                        TextField("模型名称", text: modelBinding)
+                            .textFieldStyle(.roundedBorder)
+                    }
                 }
             }
         }
