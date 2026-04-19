@@ -246,7 +246,7 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("欢迎使用 Tidy 2.0")
                     .font(.title2.weight(.semibold))
-                Text("本地优先 · AI 驱动 · 数据不离本机")
+                Text("AI 读取文件内容 · 误删 30 天可恢复 · 数据不离本机")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
