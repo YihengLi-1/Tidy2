@@ -156,6 +156,7 @@ actor FileIntelligenceService {
     private struct AIOutput: Decodable {
         let category: String
         let docType: String?
+        let projectGroup: String?
         let extractedName: String?
         let documentDate: String?
         let summary: String
@@ -170,25 +171,33 @@ actor FileIntelligenceService {
     private(set) var lastError: AIError?
 
     private let systemPrompt = """
-    你是专业文档分析助手，处理法律、移民、财务、医疗、HR 和个人文档。
-    输出严格合法 JSON，不加 markdown，不加任何解释文字。
+    你是专业文件整理助手。分析文件并输出严格合法 JSON，不加 markdown，不加任何解释文字。
 
     字段规范：
     - category: 文件类别中文标签（自由文本，≤10字）
     - docType: 严格从以下枚举选一个值：护照|身份证件|驾照|出生证明|结婚证|离婚证|死亡证明|无犯罪证明|移民申请表|签证文件|授权书|法院文件|律师文件|合同|就业证明|录用通知|工资单|简历|推荐信|银行流水|税务记录|发票|收据|保险文件|地址证明|房产文件|医疗记录|处方|学历证明|成绩单|技术文档|截图|安装包|照片|其他
+    - projectGroup: 这个文件所属的项目或主题名称（≤20字，中英文均可）。例如：iOS开发、税务2024、求职材料、旅行规划。无明确项目关联填 null
     - extractedName: 文件所属人、公司或项目名称（原文，不翻译）；无法判断填 null
     - documentDate: 文件上注明的日期，格式 yyyy-MM-dd 或 yyyy-MM 或 yyyy；无法判断填 null
     - summary: 一句话描述文件内容，≤80字
     - suggestedFolder: 归档路径建议（相对路径，无首尾斜杠）。
-      规则：若 extractedName 非空则用 "Cases/[姓名]/[docType]"；
-      否则按内容用通用路径如 "财务/发票/2024"。
+      规则（按优先级）：
+      1. 若 projectGroup 非空：用 "[projectGroup]/[docType类别]" 格式，如 "iOS开发/技术文档"
+      2. 若 extractedName 非空且是人名/公司名：用 "案例/[名称]/[docType]"
+      3. 截图 → "截图/[yyyy-MM]"；安装包 → "安装包/[yyyy]"
+      4. 财务类（发票/收据/银行流水/税务记录）→ "财务/[docType]/[yyyy]"
+      5. 其他 → "[category]/[yyyy-MM]"
     - keepOrDelete: keep|delete|unsure
+      - delete: 安装包（已不需要）、明显重复、临时文件
+      - keep: 重要证件、合同、财务记录、技术文档
+      - unsure: 截图、普通下载
     - reason: 分类依据，≤60字
     - confidence: 0.0-1.0
     """
 
     private let analysisBatchSize = 50
     private let maxFilesToAnalyze = 500
+    var existingFolders: [String] = []
 
     init(store: SQLiteStore) {
         self.store = store
@@ -204,6 +213,7 @@ actor FileIntelligenceService {
     func analyzeNewFiles() async { await runBatchAnalysis() }
     func currentError() -> AIError? { lastError }
     func clearLastError() { lastError = nil }
+    func setExistingFolders(_ folders: [String]) { existingFolders = folders }
 
     func runBatchAnalysis() async {
         let provider = AIProvider.current
@@ -229,7 +239,8 @@ actor FileIntelligenceService {
                     if let intel = await analyze(
                         filePath: path, pdfText: text,
                         fileName: file.name, ext: file.ext,
-                        sizeBytes: file.sizeBytes, modifiedAt: file.modifiedAt
+                        sizeBytes: file.sizeBytes, modifiedAt: file.modifiedAt,
+                        existingFolders: existingFolders
                     ) {
                         try store.upsertFileIntelligence(intel)
                         RuntimeLog.append("[AI] analyzed path=\(path) category=\(intel.category) confidence=\(String(format: "%.2f", intel.confidence))")
@@ -258,10 +269,12 @@ actor FileIntelligenceService {
 
     func analyze(filePath: String, pdfText: String?,
                  fileName: String, ext: String,
-                 sizeBytes: Int64, modifiedAt: Date) async -> FileIntelligence? {
+                 sizeBytes: Int64, modifiedAt: Date,
+                 existingFolders: [String] = []) async -> FileIntelligence? {
         let userPrompt = makeUserPrompt(fileName: fileName, ext: ext,
                                         sizeBytes: sizeBytes, modifiedAt: modifiedAt,
-                                        extractedText: pdfText)
+                                        extractedText: pdfText,
+                                        existingFolders: existingFolders)
         switch AIProvider.current {
         case .ollama: return await analyzeWithOllama(filePath: filePath, userPrompt: userPrompt)
         case .claude: return await analyzeWithClaude(filePath: filePath, userPrompt: userPrompt)
@@ -423,6 +436,9 @@ actor FileIntelligenceService {
         let docType = DocType(
             rawValue: output.docType?.trimmingCharacters(in: .whitespacesAndNewlines) ?? DocType.other.rawValue
         ) ?? .other
+        let projectGroup = output.projectGroup?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nilIfEmpty
 
         return FileIntelligence(
             filePath: filePath,
@@ -435,7 +451,8 @@ actor FileIntelligenceService {
             analyzedAt: Date(),
             extractedName: extractedName,
             documentDate: documentDate,
-            docType: docType
+            docType: docType,
+            projectGroup: projectGroup
         )
     }
 
@@ -449,6 +466,7 @@ actor FileIntelligenceService {
         let category = (raw["category"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
             .nilIfEmpty ?? "其他"
         let docType = (raw["docType"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let projectGroup = (raw["projectGroup"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         let extractedName = (raw["extractedName"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         let documentDate = (raw["documentDate"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         let summary = (raw["summary"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -472,6 +490,7 @@ actor FileIntelligenceService {
         return AIOutput(
             category: category,
             docType: docType,
+            projectGroup: projectGroup?.nilIfEmpty,
             extractedName: extractedName?.nilIfEmpty,
             documentDate: documentDate?.nilIfEmpty,
             summary: summary,
@@ -486,12 +505,16 @@ actor FileIntelligenceService {
 
     private func makeUserPrompt(fileName: String, ext: String,
                                 sizeBytes: Int64, modifiedAt: Date,
-                                extractedText: String?) -> String {
+                                extractedText: String?,
+                                existingFolders: [String] = []) -> String {
         let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
         var prompt = "fileName: \(fileName.replacingOccurrences(of: "\n", with: " "))\next: \(ext)\nsizeBytes: \(sizeBytes)\nmodifiedAt: \(fmt.string(from: modifiedAt))"
         if let t = extractedText?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty {
             let normalized = t.replacingOccurrences(of: "\r", with: "\n").replacingOccurrences(of: "\u{0}", with: " ")
             prompt += "\ncontent:\n" + String(normalized.prefix(max(0, 1200 - prompt.count)))
+        }
+        if !existingFolders.isEmpty {
+            prompt += "\nexistingFolders: " + existingFolders.prefix(20).joined(separator: "|")
         }
         return String(prompt.prefix(1200))
     }

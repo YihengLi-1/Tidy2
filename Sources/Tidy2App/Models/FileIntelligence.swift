@@ -102,6 +102,7 @@ struct FileIntelligence: Codable, Hashable {
     let extractedName: String?
     let documentDate: String?
     let docType: DocType
+    let projectGroup: String?
 
     enum KeepOrDelete: String, Codable {
         case keep
@@ -119,7 +120,8 @@ struct FileIntelligence: Codable, Hashable {
          analyzedAt: Date = Date(),
          extractedName: String? = nil,
          documentDate: String? = nil,
-         docType: DocType = .other) {
+         docType: DocType = .other,
+         projectGroup: String? = nil) {
         self.filePath = filePath
         self.category = category
         self.summary = summary
@@ -131,6 +133,7 @@ struct FileIntelligence: Codable, Hashable {
         self.extractedName = extractedName
         self.documentDate = documentDate
         self.docType = docType
+        self.projectGroup = projectGroup
     }
 }
 

@@ -330,7 +330,8 @@ final class SQLiteStore: @unchecked Sendable {
             analyzed_at REAL NOT NULL,
             extracted_name TEXT,
             document_date TEXT,
-            doc_type TEXT NOT NULL DEFAULT '其他'
+            doc_type TEXT NOT NULL DEFAULT '其他',
+            project_group TEXT
         );
 
         CREATE VIRTUAL TABLE IF NOT EXISTS pdf_text_fts USING fts5(
@@ -377,6 +378,7 @@ final class SQLiteStore: @unchecked Sendable {
         try ensureColumn(table: "file_ai", column: "extracted_name", definition: "TEXT")
         try ensureColumn(table: "file_ai", column: "document_date", definition: "TEXT")
         try ensureColumn(table: "file_ai", column: "doc_type", definition: "TEXT NOT NULL DEFAULT '其他'")
+        try ensureColumn(table: "file_ai", column: "project_group", definition: "TEXT")
         try execute(sql: "UPDATE files SET content_hash = sha256 WHERE (content_hash IS NULL OR content_hash = '') AND sha256 IS NOT NULL AND sha256 != ''")
         try execute(sql: "CREATE INDEX IF NOT EXISTS idx_files_content_hash ON files(content_hash)")
         try execute(sql: "PRAGMA user_version = \(schemaVersion)")
@@ -1583,9 +1585,10 @@ final class SQLiteStore: @unchecked Sendable {
                 analyzed_at,
                 extracted_name,
                 document_date,
-                doc_type
+                doc_type,
+                project_group
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(file_path) DO UPDATE SET
                 category = excluded.category,
                 summary = excluded.summary,
@@ -1596,7 +1599,8 @@ final class SQLiteStore: @unchecked Sendable {
                 analyzed_at = excluded.analyzed_at,
                 extracted_name = excluded.extracted_name,
                 document_date = excluded.document_date,
-                doc_type = excluded.doc_type
+                doc_type = excluded.doc_type,
+                project_group = excluded.project_group
             """
             var stmt: OpaquePointer?
             defer { sqlite3_finalize(stmt) }
@@ -1622,6 +1626,11 @@ final class SQLiteStore: @unchecked Sendable {
                 sqlite3_bind_null(stmt, 10)
             }
             try bindText(intelligence.docType.rawValue, index: 11, stmt: stmt)
+            if let pg = intelligence.projectGroup, !pg.isEmpty {
+                try bindText(pg, index: 12, stmt: stmt)
+            } else {
+                sqlite3_bind_null(stmt, 12)
+            }
             try stepDone(stmt)
         }
     }
@@ -1630,7 +1639,7 @@ final class SQLiteStore: @unchecked Sendable {
         try syncOnQueue {
             let sql = """
             SELECT file_path, category, summary, suggested_folder, keep_or_delete, reason, confidence, analyzed_at,
-                   extracted_name, document_date, doc_type
+                   extracted_name, document_date, doc_type, project_group
             FROM file_ai
             WHERE file_path = ?
             LIMIT 1
@@ -1660,7 +1669,7 @@ final class SQLiteStore: @unchecked Sendable {
             let sql = """
             SELECT a.file_path, a.category, a.summary, a.suggested_folder,
                    a.keep_or_delete, a.reason, a.confidence, a.analyzed_at,
-                   a.extracted_name, a.document_date, a.doc_type
+                   a.extracted_name, a.document_date, a.doc_type, a.project_group
             FROM file_ai a
             JOIN files f ON f.path = a.file_path
             WHERE f.status = 'active'
@@ -1754,7 +1763,7 @@ final class SQLiteStore: @unchecked Sendable {
             let placeholders = paths.map { _ in "?" }.joined(separator: ",")
             let sql = """
             SELECT file_path, category, summary, suggested_folder, keep_or_delete, reason, confidence, analyzed_at,
-                   extracted_name, document_date, doc_type
+                   extracted_name, document_date, doc_type, project_group
             FROM file_ai
             WHERE file_path IN (\(placeholders))
             """
@@ -3634,6 +3643,10 @@ final class SQLiteStore: @unchecked Sendable {
             return value
         }()
         let docTypeRaw = columnText(stmt, index: 10) ?? DocType.other.rawValue
+        let projectGroup: String? = {
+            guard let value = columnText(stmt, index: 11), !value.isEmpty else { return nil }
+            return value
+        }()
 
         return FileIntelligence(
             filePath: filePath,
@@ -3646,7 +3659,8 @@ final class SQLiteStore: @unchecked Sendable {
             analyzedAt: analyzedAt,
             extractedName: extractedName,
             documentDate: documentDate,
-            docType: DocType(rawValue: docTypeRaw) ?? .other
+            docType: DocType(rawValue: docTypeRaw) ?? .other,
+            projectGroup: projectGroup
         )
     }
 
