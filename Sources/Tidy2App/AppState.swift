@@ -3859,6 +3859,10 @@ final class AppState: ObservableObject {
         guard totalFilesScanned > 0 else { return false }
 
         switch AIProvider.current {
+        case .gemini:
+            let key = FileIntelligenceService.readGeminiAPIKeyFromKeychain()?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !key.isEmpty else { return false }
         case .ollama:
             let model = (UserDefaults.standard.string(forKey: "ollama_model") ?? "qwen2.5:3b")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
