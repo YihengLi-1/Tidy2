@@ -11,22 +11,16 @@ struct RootView: View {
         NavigationSplitView {
             List {
                 sidebarRow(.home, title: "首页", icon: "house")
-                sidebarRow(.search, title: "搜索文件", icon: "magnifyingglass")
                 sidebarRow(.settings, title: "偏好设置", icon: "gearshape")
 
                 DisclosureGroup(isExpanded: $showMore) {
                     VStack(alignment: .leading, spacing: 2) {
                         disclosureRow(.duplicates, title: "重复文件", icon: "doc.on.doc", badge: appState.duplicateGroups.count)
                         disclosureRow(.bundles, title: "整理建议", icon: "square.stack.3d.up", badge: appState.pendingBundlesCount)
-                        disclosureRow(.aiFiles, title: "AI 智能分析", icon: "brain", badge: aiDeleteSuggestionCount, badgeColor: aiDeleteSuggestionCount > 0 ? .red : nil)
-                        disclosureRow(.cases, title: "案例归档", icon: "person.2.fill")
+                        disclosureRow(.aiFiles, title: "智能整理", icon: "brain", badge: aiDeleteSuggestionCount, badgeColor: aiDeleteSuggestionCount > 0 ? .red : nil)
                         disclosureRow(.cleanup, title: "清理建议", icon: "externaldrive.badge.minus")
-                        disclosureRow(.versionFiles, title: "版本文件", icon: "doc.badge.clock", badge: appState.versionGroups.count)
-                        disclosureRow(.installerCandidates, title: "待处理安装包", icon: "tray", badge: appState.pendingInboxCount)
                         disclosureRow(.quarantine, title: "隔离区", icon: "shield")
                         disclosureRow(.changeLog, title: "操作记录", icon: "clock.arrow.circlepath")
-                        disclosureRow(.rules, title: "自定义规则", icon: "line.3.horizontal.decrease.circle")
-                        disclosureRow(.metrics, title: "使用情况", icon: "chart.bar")
                     }
                     .padding(.top, 4)
                 } label: {

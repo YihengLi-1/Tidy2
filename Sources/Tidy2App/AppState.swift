@@ -142,6 +142,7 @@ final class AppState: ObservableObject {
     @Published var searchResultIntelMap: [String: FileIntelligence] = [:]
     @Published var aiAnalyzedFilesCount: Int = 0
     @Published var aiIntelligenceItems: [FileIntelligence] = []
+    @Published var archiveFolderNames: [String] = []
     @Published var detectedCases: [DetectedCase] = []
     @Published var activeChecklist: ChecklistTemplate = ChecklistTemplate.presets[0]
     @Published var isAIAnalyzing: Bool = false
@@ -474,6 +475,10 @@ final class AppState: ObservableObject {
         await runBatchAnalysis()
     }
 
+    func analyzeNewFiles() async {
+        await runAIAnalysisNow()
+    }
+
     func runBatchAnalysis() async {
         launchAIAnalysis(priority: .utility) { service in
             await service.runBatchAnalysis()
@@ -707,8 +712,21 @@ final class AppState: ObservableObject {
         statusMessage = "✓ 已归档 \(cas.name) 的 \(moved) 个文件"
     }
 
+    func loadArchiveFolderStructure() {
+        guard !archiveRootPath.isEmpty else { return }
+        let root = URL(fileURLWithPath: archiveRootPath)
+        let fm = FileManager.default
+        guard let items = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else { return }
+        archiveFolderNames = items.compactMap { url -> String? in
+            guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { return nil }
+            return url.lastPathComponent
+        }.sorted()
+    }
+
     func runAIAnalysisNow() async {
         isAIAnalyzing = true
+        loadArchiveFolderStructure()
+        await services.fileIntelligenceService.setExistingFolders(archiveFolderNames)
         NotificationCenter.default.post(name: .aiAnalysisStarted, object: nil)
         await services.fileIntelligenceService.analyzeNewFiles()
         isAIAnalyzing = false
