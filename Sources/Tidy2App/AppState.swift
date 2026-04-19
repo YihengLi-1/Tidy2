@@ -367,10 +367,29 @@ final class AppState: ObservableObject {
             guard let self else { return }
             await self.refreshAll(trigger: "bootstrap")
         }
+        scheduleWeeklyDigestNotification()
     }
 
     func requestNotificationPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    func scheduleWeeklyDigestNotification() {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: ["tidy2.weekly.digest"])
+        let pending = bundles.count + aiIntelligenceItems.filter { $0.keepOrDelete == .delete }.count
+        guard pending > 0 || totalFilesScanned > 0 else { return }
+        var dc = DateComponents(); dc.weekday = 2; dc.hour = 9; dc.minute = 0
+        let content = UNMutableNotificationContent()
+        content.title = "📁 Tidy 每周提醒"
+        content.body = pending > 0
+            ? "有 \(pending) 个待处理建议，共 \(totalFilesScanned) 个文件已扫描"
+            : "文件整洁，已扫描 \(totalFilesScanned) 个文件"
+        content.sound = .default
+        content.userInfo = ["action": "openBundles"]
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dc, repeats: true)
+        let req = UNNotificationRequest(identifier: "tidy2.weekly.digest", content: content, trigger: trigger)
+        center.add(req, withCompletionHandler: nil)
     }
 
     func completeOnboarding() async {

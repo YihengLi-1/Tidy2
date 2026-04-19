@@ -102,3 +102,23 @@ https://tidy.app/support
 
 ## Marketing URL
 https://tidy.app
+
+---
+
+## Competitive Positioning
+
+**vs. Hazel / VaultSort**: 无需手写规则，AI 自动理解文件内容并学习你的整理习惯。
+**vs. Floxtop / NameQuick**: 同样 AI 读取文件内容，额外增加隔离缓冲区 + 完整撤销 —— 让不懂技术的用户也敢用。
+**vs. CleanMyMac**: 我们整理文件而不只是删除，每个操作都可逆。
+**vs. Sparkle**: 我们读取文件实际内容，不只看文件名。
+
+## 一句话定位
+"唯一同时做到 AI 内容理解 + 隔离缓冲 + 完整撤销的 Mac 文件整理工具。"
+
+## 核心差异化
+市场上：
+- 有内容 AI（Floxtop）✓，但无撤销 ✗
+- 有规则引擎（Hazel）✓，但需手写规则 ✗  
+- 有事务回滚（VaultSort）✓，但无 AI ✗
+
+Tidy = 全部三者 ✓

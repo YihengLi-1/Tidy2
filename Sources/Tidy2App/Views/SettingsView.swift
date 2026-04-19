@@ -154,14 +154,32 @@ struct SettingsView: View {
             }
 
             Section("关于") {
-                Text("Tidy 2.0")
-                    .font(.headline)
-                Text("版本 0.9.5")
-                    .foregroundStyle(.secondary)
-                Text("本地优先的文件整理助手，AI 驱动，数据不离本机。")
+                HStack(spacing: TidySpacing.sm) {
+                    Image(systemName: "folder.badge.gearshape")
+                        .font(.title2)
+                        .foregroundStyle(.blue)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Tidy 2.0").font(.headline)
+                        Text("版本 1.0.0").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Text("AI 读取文件内容 · 隔离缓冲 · 完整撤销")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.accentColor)
+                Text("扫描下载文件夹、桌面和文稿，AI 识别文件类型和内容，生成整理计划。所有操作可撤销，误删文件 30 天内可恢复原位。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Link("反馈与建议", destination: URL(string: "mailto:feedback@tidy.app")!)
+                VStack(alignment: .leading, spacing: TidySpacing.xs) {
+                    Text("隐私政策")
+                        .font(.caption.weight(.semibold))
+                    Text("Tidy 不收集任何个人数据，不上传文件内容，无需账号。AI 分析通过用户自己的 API Key 调用，文件内容不经过 Tidy 服务器。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(TidySpacing.sm)
+                .background(Color.gray.opacity(TidyOpacity.ultraLight))
+                .clipShape(RoundedRectangle(cornerRadius: TidyRadius.sm))
+                Link("反馈与建议 →", destination: URL(string: "mailto:feedback@tidy.app")!)
                     .font(.caption)
             }
         }

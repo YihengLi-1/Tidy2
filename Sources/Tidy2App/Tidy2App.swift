@@ -48,8 +48,11 @@ struct Tidy2App: App {
                 }
             }
         } label: {
-            let count = launcher.appState?.bundles.count ?? 0
-            Label(count > 0 ? "\(count)" : "", systemImage: "folder.badge.gearshape")
+            let bundles = launcher.appState?.bundles.count ?? 0
+            let aiDelete = launcher.appState?.aiIntelligenceItems.filter { $0.keepOrDelete == .delete }.count ?? 0
+            let expired = launcher.appState?.digest.expiredQuarantineCount ?? 0
+            let total = bundles + aiDelete + expired
+            Label(total > 0 ? "\(total)" : "", systemImage: "folder.badge.gearshape")
         }
         .menuBarExtraStyle(.menu)
     }

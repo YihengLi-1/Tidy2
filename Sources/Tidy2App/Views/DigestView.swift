@@ -216,18 +216,24 @@ struct DigestView: View {
             HStack(spacing: TidySpacing.sm) {
                 Image(systemName: "magnifyingglass.circle.fill")
                     .foregroundStyle(.blue)
-                Text("扫描一下你的文件，Tidy 会帮你找出可整理的内容")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.title2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("扫描你的 Downloads 文件夹")
+                        .font(.subheadline.weight(.semibold))
+                    Text("AI 读取文件内容，识别重复、截图、安装包，生成整理计划，误删可恢复")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             Button("开始扫描") {
                 appState.scanButtonTappedFromHome()
             }
             .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.return, modifiers: .command)
         }
         .padding(TidySpacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.blue.opacity(TidyOpacity.medium))
-        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xl))
+        .tidyColorCard(.blue, radius: TidyRadius.xl, opacity: TidyOpacity.medium)
     }
 
     private var scanningCard: some View {
