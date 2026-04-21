@@ -1169,6 +1169,48 @@ final class AppState: ObservableObject {
         }
     }
 
+    // MARK: - One-tap execution
+
+    struct ExecutionSummary {
+        let archived: Int
+        let deleted: Int
+        let freedBytes: Int64
+        var total: Int { archived + deleted }
+    }
+
+    @Published var lastExecutionSummary: ExecutionSummary? = nil
+
+    @discardableResult
+    func executeAllRecommendations() async -> ExecutionSummary {
+        isBusy = true
+        statusMessage = "正在执行整理计划…"
+        var archived = 0
+        var deleted = 0
+        var freed: Int64 = 0
+
+        let toArchive = aiIntelligenceItems.filter { $0.keepOrDelete == .keep && !$0.suggestedFolder.isEmpty }
+        if !toArchive.isEmpty {
+            archived = await bulkMoveToSuggestedFolders(toArchive)
+        }
+
+        let toDelete = aiIntelligenceItems.filter { $0.keepOrDelete == .delete }
+        if !toDelete.isEmpty {
+            deleted += await moveFilesToTrash(paths: toDelete.map { $0.filePath })
+        }
+
+        if duplicatesTotalWastedBytes > 10_000_000 {
+            let dupeResult = await autoCleanDuplicates()
+            deleted += dupeResult.deleted
+            freed += dupeResult.freedBytes
+        }
+
+        let summary = ExecutionSummary(archived: archived, deleted: deleted, freedBytes: freed)
+        lastExecutionSummary = summary
+        isBusy = false
+        statusMessage = "✓ 整理完成：归档 \(archived) 个，删除 \(deleted) 个"
+        return summary
+    }
+
     func openInstallerCandidates() {
         pendingTab = .installerCandidates
     }
