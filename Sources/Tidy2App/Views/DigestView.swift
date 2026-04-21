@@ -390,7 +390,7 @@ struct DigestView: View {
                                 .foregroundStyle(.purple)
                         }
                         if s.deleted > 0 {
-                            Label("删除了 \(s.deleted) 个文件", systemImage: "trash.fill")
+                            Label("移到废纸篓 \(s.deleted) 个文件", systemImage: "trash.fill")
                                 .foregroundStyle(.orange)
                         }
                         if s.freedBytes > 0 {
@@ -399,9 +399,39 @@ struct DigestView: View {
                         }
                     }
                     .font(.subheadline.weight(.medium))
+
+                    // Show where archived files went and let user open it
+                    if s.archived > 0 && !s.archiveRootPath.isEmpty {
+                        Button {
+                            appState.openArchiveRootInFinder()
+                        } label: {
+                            HStack(spacing: TidySpacing.sm) {
+                                Image(systemName: "folder.fill")
+                                    .foregroundStyle(.purple)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("在 Finder 中查看归档文件夹")
+                                        .font(.caption.weight(.medium))
+                                    Text(s.archiveRootPath)
+                                        .font(.caption2.monospaced())
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                }
+                                Spacer()
+                                Image(systemName: "arrow.up.forward.square")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(TidySpacing.lg)
+                            .frame(maxWidth: 400, alignment: .leading)
+                            .background(Color.purple.opacity(0.07))
+                            .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
 
-                Text("文件已移到废纸篓，可随时恢复")
+                Text("已删除文件在废纸篓，可随时恢复")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
