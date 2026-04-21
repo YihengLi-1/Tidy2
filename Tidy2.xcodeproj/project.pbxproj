@@ -50,6 +50,7 @@
 		E0C4C373C8CB32499785DDAD /* BundleBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A72013F29870C97A31BE5BA /* BundleBuilder.swift */; };
 		E7C2977468265ABC689C2BB3 /* ServiceContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 972E8DBBB914232758B2607C /* ServiceContainer.swift */; };
 		F1C209432A9766808CA46CF8 /* AIFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAF828BB1E0F6EE0E91846BE /* AIFilesView.swift */; };
+		BB2222222222222222222222 /* CaseIntakeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1111111111111111111111 /* CaseIntakeView.swift */; };
 		F72133AD9789A08AEEA83E98 /* RulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C927AB593D1C20596243329C /* RulesView.swift */; };
 		FA12B24D13DDE93C0C41CB0F /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F35C2A1004C75FDD5BBCD7D /* SearchView.swift */; };
 		FACAF2262D94F7565C28E61B /* FileIntelligenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F89F19515C5DCAF22BDD824 /* FileIntelligenceService.swift */; };
@@ -94,6 +95,7 @@
 		B6157DE4934A077BFFB46CAD /* AccessManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessManager.swift; sourceTree = "<group>"; };
 		BA83C08E02E8864BE95EA227 /* Indexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Indexer.swift; sourceTree = "<group>"; };
 		BAF828BB1E0F6EE0E91846BE /* AIFilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIFilesView.swift; sourceTree = "<group>"; };
+		BB1111111111111111111111 /* CaseIntakeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaseIntakeView.swift; sourceTree = "<group>"; };
 		BE006466D70E62F6AC438A76 /* CasesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CasesView.swift; sourceTree = "<group>"; };
 		C53CE0BC8ADEF0540AC15D41 /* AISettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsView.swift; sourceTree = "<group>"; };
 		C927AB593D1C20596243329C /* RulesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulesView.swift; sourceTree = "<group>"; };
@@ -200,6 +202,7 @@
 			isa = PBXGroup;
 			children = (
 				BAF828BB1E0F6EE0E91846BE /* AIFilesView.swift */,
+				BB1111111111111111111111 /* CaseIntakeView.swift */,
 				C53CE0BC8ADEF0540AC15D41 /* AISettingsView.swift */,
 				910CE1C3CD191721DF4C03B8 /* BundleDetailView.swift */,
 				8BC2015188A6B0A89374EA4E /* BundlesView.swift */,
@@ -306,6 +309,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F1C209432A9766808CA46CF8 /* AIFilesView.swift in Sources */,
+				BB2222222222222222222222 /* CaseIntakeView.swift in Sources */,
 				49E0AF8A9AF207AFF136CFA7 /* AISettingsView.swift in Sources */,
 				B1FCDC35330F6BA7DF236330 /* AccessManager.swift in Sources */,
 				9286BB6738FB081848A03DB5 /* ActionEngine.swift in Sources */,

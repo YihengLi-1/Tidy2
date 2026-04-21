@@ -21,6 +21,9 @@ struct RootView: View {
                     badgeColor: aiDeleteSuggestionCount > 0 ? .red : (aiActionableCount > 0 ? .purple : nil)
                 )
 
+                // 案件助手 — primary slot for professional workflow
+                sidebarRow(.caseIntake, title: "案件助手", icon: "doc.badge.clock")
+
                 sidebarRow(.settings, title: "偏好设置", icon: "gearshape")
 
                 DisclosureGroup(isExpanded: $showMore) {
@@ -88,6 +91,7 @@ struct RootView: View {
             case .search:               switchTo(.search)
             case .cleanup:              switchTo(.cleanup)
             case .aiFiles:              switchTo(.aiFiles)
+            case .caseIntake:           switchTo(.caseIntake)
             case .cases:                switchTo(.cases)
             case .installerCandidates:  switchTo(.installerCandidates)
             case .changeLog:            switchTo(.changeLog)
@@ -194,6 +198,7 @@ struct RootView: View {
         case .duplicates:           DuplicatesView()
         case .cleanup:              CleanupView()
         case .aiFiles:              AIFilesView()
+        case .caseIntake:           CaseIntakeView()
         case .cases:                CasesView()
         case .versionFiles:         VersionFilesView()
         case .installerCandidates:  InstallerCandidatesView()
@@ -216,6 +221,7 @@ struct RootView: View {
         case .duplicates:           DuplicatesView()
         case .cleanup:              CleanupView()
         case .aiFiles:              AIFilesView()
+        case .caseIntake:           CaseIntakeView()
         case .cases:                CasesView()
         case .versionFiles:         VersionFilesView()
         case .installerCandidates:  InstallerCandidatesView()
@@ -293,13 +299,13 @@ struct RootView: View {
 // MARK: - Sidebar items enum
 
 private enum SidebarItem: Hashable {
-    case home, search, duplicates, cleanup, aiFiles, cases, versionFiles
+    case home, search, duplicates, cleanup, aiFiles, caseIntake, cases, versionFiles
     case installerCandidates, bundles, quarantine, changeLog
     case settings, rules, metrics
 
     var isPrimary: Bool {
         switch self {
-        case .home, .search, .settings, .aiFiles:
+        case .home, .search, .settings, .aiFiles, .caseIntake:
             return true
         default:
             return false

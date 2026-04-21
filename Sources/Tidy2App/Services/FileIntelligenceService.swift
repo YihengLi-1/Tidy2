@@ -198,6 +198,51 @@ actor FileIntelligenceService {
     - confidence: 0.0-1.0
     """
 
+    private let legalSystemPrompt = """
+    你是移民律师的文件分析助手。专门分析 EB-1A/O-1 签证申请材料。
+
+    分析文件并输出严格合法 JSON，不加 markdown，不加任何解释文字：
+    {
+      "category": "证据类别",
+      "docType": "pdf",
+      "projectGroup": "2019",
+      "extractedName": "申请人或机构名称",
+      "documentDate": "2019-05-20",
+      "summary": "一句话描述：什么组织/机构 授予/报道/认可了什么成就（≤100字）",
+      "suggestedFolder": "奖项",
+      "keepOrDelete": "keep",
+      "reason": "证据类型和相关性说明",
+      "confidence": 0.9
+    }
+
+    suggestedFolder 必须严格从以下10个类别选一个：
+    奖项|媒体报道|专家推荐信|学术论文|证书|会员资格|评审经历|原创贡献|薪资证明|关键职位|推荐信|其他
+
+    类别说明：
+    - 奖项：国家级/国际级奖励、prize、honor，如 IEEE Fellow、ACM Award
+    - 媒体报道：报纸、杂志、网络媒体关于申请人的文章/报道
+    - 专家推荐信：领域专家（教授、院士）出具的关于申请人工作的推荐函/支持信
+    - 学术论文：已发表的研究论文、期刊文章、会议论文
+    - 证书：证书、文凭、学位证、结业证
+    - 会员资格：专业学会会员资格，如 ACM Fellow、IEEE Senior Member
+    - 评审经历：担任期刊编委、会议评审、奖项评委的证明
+    - 原创贡献：专利证书、重大原创技术/作品的证明
+    - 薪资证明：offer letter、工资单、劳动合同中体现的薪资水平
+    - 关键职位：在知名机构担任 lead/director/principal 等关键角色的证明
+    - 推荐信：一般性推荐信（非专家评价类）
+    - 其他：不符合上述任何类别
+
+    projectGroup 规则：
+    - 找文件中日期，以 成就/奖励/发表 发生的年份为准（不是文件打印日期）
+    - 必须是4位数字年份字符串，如 "2019"
+    - 完全无法判断则填 "未知"
+
+    keepOrDelete 规则：
+    - 一律填 "keep"，除非文件明显空白、重复或完全无关移民申请
+
+    extractedName：申请人姓名或授奖机构名称（英文原文，不翻译）
+    """
+
     private let analysisBatchSize = 50
     private let maxFilesToAnalyze = 500
     var existingFolders: [String] = []
@@ -272,21 +317,40 @@ actor FileIntelligenceService {
     func analyze(filePath: String, pdfText: String?,
                  fileName: String, ext: String,
                  sizeBytes: Int64, modifiedAt: Date,
-                 existingFolders: [String] = []) async -> FileIntelligence? {
+                 existingFolders: [String] = [],
+                 systemPromptOverride: String? = nil) async -> FileIntelligence? {
         let userPrompt = makeUserPrompt(fileName: fileName, ext: ext,
                                         sizeBytes: sizeBytes, modifiedAt: modifiedAt,
                                         extractedText: pdfText,
                                         existingFolders: existingFolders)
+        let sysPrompt = systemPromptOverride ?? systemPrompt
         switch AIProvider.current {
-        case .gemini: return await analyzeWithGemini(filePath: filePath, userPrompt: userPrompt)
-        case .ollama: return await analyzeWithOllama(filePath: filePath, userPrompt: userPrompt)
-        case .claude: return await analyzeWithClaude(filePath: filePath, userPrompt: userPrompt)
+        case .gemini: return await analyzeWithGemini(filePath: filePath, userPrompt: userPrompt, systemPromptOverride: sysPrompt)
+        case .ollama: return await analyzeWithOllama(filePath: filePath, userPrompt: userPrompt, systemPromptOverride: sysPrompt)
+        case .claude: return await analyzeWithClaude(filePath: filePath, userPrompt: userPrompt, systemPromptOverride: sysPrompt)
         }
+    }
+
+    func analyzeLegalDocument(url: URL) async -> FileIntelligence? {
+        let path = url.path
+        let ext = url.pathExtension.lowercased()
+        let fileName = url.lastPathComponent
+        let attrs = (try? FileManager.default.attributesOfItem(atPath: path)) ?? [:]
+        let size = (attrs[.size] as? Int64) ?? 0
+        let modDate = (attrs[.modificationDate] as? Date) ?? Date()
+        let text = extractTextSnippet(filePath: path, ext: ext)
+        return await analyze(
+            filePath: path, pdfText: text,
+            fileName: fileName, ext: ext,
+            sizeBytes: size, modifiedAt: modDate,
+            existingFolders: [],
+            systemPromptOverride: legalSystemPrompt
+        )
     }
 
     // MARK: - Ollama
 
-    private func analyzeWithOllama(filePath: String, userPrompt: String) async -> FileIntelligence? {
+    private func analyzeWithOllama(filePath: String, userPrompt: String, systemPromptOverride: String? = nil) async -> FileIntelligence? {
         let model = UserDefaults.standard.string(forKey: "ollama_model") ?? "qwen2.5:3b"
         // Use OpenAI-compat endpoint so we get choices[] back
         guard let endpoint = URL(string: "http://localhost:11434/v1/chat/completions") else { return nil }
@@ -294,7 +358,7 @@ actor FileIntelligenceService {
         let body = OllamaRequest(
             model: model,
             messages: [
-                .init(role: "system", content: systemPrompt),
+                .init(role: "system", content: systemPromptOverride ?? systemPrompt),
                 .init(role: "user",   content: userPrompt)
             ],
             stream: false,
@@ -350,7 +414,7 @@ actor FileIntelligenceService {
         Self.readGeminiAPIKeyFromKeychain()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
-    private func analyzeWithGemini(filePath: String, userPrompt: String) async -> FileIntelligence? {
+    private func analyzeWithGemini(filePath: String, userPrompt: String, systemPromptOverride: String? = nil) async -> FileIntelligence? {
         let key = geminiAPIKey
         guard !key.isEmpty else { return nil }
 
@@ -371,7 +435,7 @@ actor FileIntelligenceService {
         parts.append(["text": userPrompt])
 
         let body: [String: Any] = [
-            "system_instruction": ["parts": [["text": systemPrompt]]],
+            "system_instruction": ["parts": [["text": systemPromptOverride ?? systemPrompt]]],
             "contents": [["role": "user", "parts": parts]],
             "generationConfig": [
                 "temperature": 0.1,
@@ -436,7 +500,7 @@ actor FileIntelligenceService {
         Self.readAPIKeyFromKeychain()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
-    private func analyzeWithClaude(filePath: String, userPrompt: String) async -> FileIntelligence? {
+    private func analyzeWithClaude(filePath: String, userPrompt: String, systemPromptOverride: String? = nil) async -> FileIntelligence? {
         let key = claudeAPIKey
         guard !key.isEmpty else { return nil }
 
@@ -451,7 +515,7 @@ actor FileIntelligenceService {
         let body = ClaudeRequest(
             model: "claude-haiku-4-5-20251001",
             max_tokens: 200,
-            system: systemPrompt,
+            system: systemPromptOverride ?? systemPrompt,
             messages: [.init(role: "user", content: content)]
         )
 
