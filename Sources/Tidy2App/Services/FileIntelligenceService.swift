@@ -44,7 +44,11 @@ actor FileIntelligenceService {
         var userMessage: String {
             switch self {
             case .invalidAPIKey:
-                return "Claude API Key 无效，请重新检查"
+                switch AIProvider.current {
+                case .gemini:  return "Gemini API Key 无效，请到「偏好设置 → AI 分析」重新检查"
+                case .claude:  return "Claude API Key 无效，请到「偏好设置 → AI 分析」重新检查"
+                case .ollama:  return "API Key 无效，请重新检查"
+                }
             case .rateLimited:
                 return "请求过多，稍后自动重试"
             case .ollamaUnavailable:
@@ -57,7 +61,7 @@ actor FileIntelligenceService {
         var diagnosticText: String {
             switch self {
             case .invalidAPIKey:
-                return "claude invalid api key"
+                return "\(AIProvider.current.displayName) invalid api key"
             case .rateLimited:
                 return "claude rate limited"
             case let .ollamaUnavailable(message):
