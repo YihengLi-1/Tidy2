@@ -825,7 +825,8 @@ struct DigestView: View {
     // MARK: - AI error banner
 
     private func aiErrorBanner(_ error: FileIntelligenceService.AIError) -> some View {
-        HStack(spacing: TidySpacing.sm) {
+        let isKeyError = (error == .invalidAPIKey)
+        return HStack(spacing: TidySpacing.sm) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 2) {
@@ -836,11 +837,20 @@ struct DigestView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button("重试") {
-                Task { await appState.analyzeNewFiles() }
+            if isKeyError {
+                Button("去设置") {
+                    appState.openSettings()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.mini)
+                .tint(.orange)
+            } else {
+                Button("重试") {
+                    Task { await appState.analyzeNewFiles() }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.mini)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.mini)
         }
         .padding(TidySpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
