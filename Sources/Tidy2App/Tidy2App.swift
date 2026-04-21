@@ -44,6 +44,11 @@ struct Tidy2App: App {
                     }
                     .keyboardShortcut("r", modifiers: .command)
 
+                    Button("撤销上次操作") {
+                        Task { await appState.undoLastOperation() }
+                    }
+                    .keyboardShortcut("z", modifiers: .command)
+
                     Button("AI 分析") {
                         Task { await appState.analyzeNewFiles() }
                     }
