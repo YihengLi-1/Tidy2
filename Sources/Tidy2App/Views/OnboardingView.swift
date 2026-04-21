@@ -5,6 +5,7 @@ struct OnboardingView: View {
     @State private var geminiKey: String = FileIntelligenceService.readGeminiAPIKeyFromKeychain() ?? ""
     @State private var claudeKey: String = FileIntelligenceService.readAPIKeyFromKeychain() ?? ""
     @State private var isCompleting = false
+    @State private var skippedSteps: Set<Int> = []
 
     // Track which steps are expanded for progressive disclosure
     @State private var expandedStep: Int? = 1
@@ -92,37 +93,55 @@ struct OnboardingView: View {
 
                     stepCard(
                         step: 3,
-                        title: "扫描 Documents 文件夹（可选）",
+                        title: "扫描 Documents 文件夹",
                         subtitle: "启用后可检测散落在多个位置的相关文件并智能归类。",
                         isRequired: false,
-                        isComplete: !appState.documentsFolderPath.isEmpty
+                        isOptional: true,
+                        isComplete: !appState.documentsFolderPath.isEmpty || skippedSteps.contains(3)
                     ) {
-                        if appState.documentsFolderPath.isEmpty {
+                        if appState.documentsFolderPath.isEmpty && !skippedSteps.contains(3) {
                             Button("启用 Documents 扫描") {
                                 Task { await appState.requestDocumentsAuthorization() }
                             }
                             .buttonStyle(.bordered)
-                        } else {
+                            Button("跳过，稍后设置") {
+                                skippedSteps.insert(3)
+                            }
+                            .buttonStyle(.bordered)
+                            .foregroundStyle(.secondary)
+                        } else if !appState.documentsFolderPath.isEmpty {
                             statusRow(icon: "checkmark.circle.fill", color: .green,
                                       text: appState.documentsFolderPath)
+                        } else {
+                            statusRow(icon: "arrow.right.circle", color: .secondary,
+                                      text: "已跳过，可在设置中启用")
                         }
                     }
 
                     stepCard(
                         step: 4,
-                        title: "扫描桌面（可选）",
+                        title: "扫描桌面",
                         subtitle: "扫描桌面上的文件，一并纳入整理建议。",
                         isRequired: false,
-                        isComplete: !appState.desktopFolderPath.isEmpty
+                        isOptional: true,
+                        isComplete: !appState.desktopFolderPath.isEmpty || skippedSteps.contains(4)
                     ) {
-                        if appState.desktopFolderPath.isEmpty {
+                        if appState.desktopFolderPath.isEmpty && !skippedSteps.contains(4) {
                             Button("启用桌面扫描") {
                                 Task { await appState.requestDesktopAuthorization() }
                             }
                             .buttonStyle(.bordered)
-                        } else {
+                            Button("跳过，稍后设置") {
+                                skippedSteps.insert(4)
+                            }
+                            .buttonStyle(.bordered)
+                            .foregroundStyle(.secondary)
+                        } else if !appState.desktopFolderPath.isEmpty {
                             statusRow(icon: "checkmark.circle.fill", color: .green,
                                       text: appState.desktopFolderPath)
+                        } else {
+                            statusRow(icon: "arrow.right.circle", color: .secondary,
+                                      text: "已跳过，可在设置中启用")
                         }
                     }
 
@@ -131,7 +150,8 @@ struct OnboardingView: View {
                         title: "开启 AI 分析（免费）",
                         subtitle: "Tidy 用 AI 读懂文件内容，生成精准整理建议。Gemini Flash 完全免费，只需 Google 账号。",
                         isRequired: false,
-                        isComplete: hasAnyKey
+                        isOptional: true,
+                        isComplete: hasAnyKey || skippedSteps.contains(5)
                     ) {
                         // Gemini (free, default)
                         VStack(alignment: .leading, spacing: TidySpacing.sm) {
@@ -184,17 +204,33 @@ struct OnboardingView: View {
                             }
                             .font(.caption)
                             .foregroundStyle(.secondary)
+
+                            if !hasAnyKey && !skippedSteps.contains(5) {
+                                Button("跳过，稍后设置") {
+                                    skippedSteps.insert(5)
+                                }
+                                .buttonStyle(.bordered)
+                                .foregroundStyle(.secondary)
+                                .font(.caption)
+                            } else if skippedSteps.contains(5) && !hasAnyKey {
+                                statusRow(icon: "arrow.right.circle", color: .secondary,
+                                          text: "已跳过，可在设置中添加 Key")
+                            }
                         }
                     }
+
 
                     // ── Footer ─────────────────────────────────────────
                     VStack(spacing: TidySpacing.sm) {
                         Button {
                             isCompleting = true
+                            let navigateToAI = hasAnyKey
                             Task {
                                 await appState.completeOnboarding()
                                 if appState.showOnboarding {
                                     isCompleting = false
+                                } else if navigateToAI {
+                                    appState.pendingTab = .aiFiles
                                 }
                             }
                         } label: {
@@ -209,7 +245,7 @@ struct OnboardingView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
-                        .disabled(appState.needsDownloadsAuthorization || isCompleting)
+                        .disabled(appState.needsDownloadsAuthorization || appState.archiveRootPath.isEmpty || isCompleting)
 
                         if !appState.statusMessage.isEmpty {
                             Text(appState.statusMessage)
@@ -286,9 +322,9 @@ struct OnboardingView: View {
         var count = 0
         if !appState.needsDownloadsAuthorization { count += 1 }
         if !appState.archiveRootPath.isEmpty { count += 1 }
-        if !appState.documentsFolderPath.isEmpty { count += 1 }
-        if !appState.desktopFolderPath.isEmpty { count += 1 }
-        if hasAnyKey { count += 1 }
+        if !appState.documentsFolderPath.isEmpty || skippedSteps.contains(3) { count += 1 }
+        if !appState.desktopFolderPath.isEmpty || skippedSteps.contains(4) { count += 1 }
+        if hasAnyKey || skippedSteps.contains(5) { count += 1 }
         return count
     }
 
@@ -300,6 +336,7 @@ struct OnboardingView: View {
         title: String,
         subtitle: String,
         isRequired: Bool,
+        isOptional: Bool = false,
         isComplete: Bool,
         @ViewBuilder content: () -> Content
     ) -> some View {
@@ -320,6 +357,11 @@ struct OnboardingView: View {
                                 .padding(.vertical, 2)
                                 .background(Color.accentColor)
                                 .clipShape(Capsule())
+                        }
+                        if isOptional {
+                            Text("（可选）")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
                         if isComplete && !isRequired {
                             Text("已完成")
