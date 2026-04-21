@@ -21,6 +21,7 @@ struct AIFilesView: View {
     @State private var resultIsError: Bool = false
     @State private var expandedGroups: Set<String> = []
     @State private var showExecuteConfirm = false
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         ScrollView {
@@ -94,6 +95,18 @@ struct AIFilesView: View {
         } message: {
             Text("将 \(archiveItems.count) 个文件移动到 \(archiveGroups.count) 个文件夹。操作完成后可一键撤销。")
         }
+        .confirmationDialog(
+            "移入废纸篓",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("删除 \(deleteItems.count) 个文件", role: .destructive) {
+                Task { await trashAllDeleteItems() }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将 \(deleteItems.count) 个文件移入废纸篓。这些是 AI 建议删除的安装包和临时文件。可从废纸篓恢复。")
+        }
         .task {
             await appState.refreshAIAnalysisState()
             await checkOllamaStatus()
@@ -117,6 +130,7 @@ struct AIFilesView: View {
                     if !unsureItems.isEmpty {
                         pill("\(unsureItems.count) 待确认", .secondary)
                     }
+                    pill(AIProvider.current.displayName, .blue)
                 }
             }
             Spacer()
@@ -162,6 +176,14 @@ struct AIFilesView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            if !appState.archiveRootPath.isEmpty {
+                Text("→ \(appState.archiveRootPath)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
 
             ForEach(archiveGroups) { group in
@@ -262,7 +284,7 @@ struct AIFilesView: View {
                 }
                 Spacer()
                 Button("全部移入废纸篓") {
-                    Task { await trashAllDeleteItems() }
+                    showDeleteConfirm = true
                 }
                 .buttonStyle(.bordered)
                 .foregroundStyle(.red)

@@ -152,11 +152,23 @@ struct DigestView: View {
     private var taskEngineView: some View {
         // Header
         VStack(alignment: .leading, spacing: 4) {
-            Text("发现 \(taskCount) 件事要处理")
-                .font(.title2.weight(.bold))
+            HStack(alignment: .firstTextBaseline) {
+                Text("发现")
+                    .font(.title2.weight(.bold))
+                Text("\(taskCount)")
+                    .font(.system(size: 36, weight: .black, design: .rounded))
+                    .foregroundStyle(Color.accentColor)
+                Text("件事要处理")
+                    .font(.title2.weight(.bold))
+            }
             Text("共扫描 \(appState.totalFilesScanned) 个文件 · AI 已分析 \(appState.aiAnalyzedFilesCount) 个")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+
+        // AI error banner
+        if let err = appState.aiAnalysisLastError {
+            aiErrorBanner(err)
         }
 
         // Task cards — ordered by impact
@@ -430,6 +442,34 @@ struct DigestView: View {
 
     private var oneButtonSection: some View {
         VStack(spacing: TidySpacing.sm) {
+            // Archive root missing warning
+            if appState.archiveRootPath.isEmpty && aiArchiveCount > 0 {
+                Button {
+                    Task { await appState.setupDefaultArchiveRoot() }
+                } label: {
+                    HStack(spacing: TidySpacing.sm) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("需要先设置整理文件夹")
+                                .font(.caption.weight(.semibold))
+                            Text("点此使用默认位置 ~/Documents/Tidy Archive")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(TidySpacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
+                }
+                .buttonStyle(.plain)
+            }
+
             Button {
                 executeAll()
             } label: {
@@ -441,7 +481,7 @@ struct DigestView: View {
                     .frame(maxWidth: .infinity, minHeight: 50)
                 } else {
                     VStack(spacing: 2) {
-                        Text("全部一键搞定")
+                        Text(appState.archiveRootPath.isEmpty && aiArchiveCount > 0 ? "先设置整理文件夹" : "全部一键搞定")
                             .font(.headline)
                         if estimatedFreedBytes > 0 {
                             Text("约释放 \(SizeFormatter.string(from: estimatedFreedBytes))")
@@ -454,8 +494,8 @@ struct DigestView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .tint(.accentColor)
-            .disabled(isExecutingAll || appState.isBusy)
+            .tint(appState.archiveRootPath.isEmpty && aiArchiveCount > 0 ? .orange : Color.accentColor)
+            .disabled(isExecutingAll || appState.isBusy || (appState.archiveRootPath.isEmpty && aiArchiveCount > 0))
 
             Text("文件会移到废纸篓，可随时撤销")
                 .font(.caption2)
@@ -579,6 +619,32 @@ struct DigestView: View {
         }
         .font(.caption2)
         .foregroundStyle(.tertiary)
+    }
+
+    // MARK: - AI error banner
+
+    private func aiErrorBanner(_ error: FileIntelligenceService.AIError) -> some View {
+        HStack(spacing: TidySpacing.sm) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("AI 分析遇到问题")
+                    .font(.caption.weight(.semibold))
+                Text(error.userMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("重试") {
+                Task { await appState.analyzeNewFiles() }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+        }
+        .padding(TidySpacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
     }
 
     // MARK: - Actions
