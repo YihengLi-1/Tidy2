@@ -61,6 +61,7 @@ extension View {
         self
             .background(Color.gray.opacity(opacity))
             .clipShape(RoundedRectangle(cornerRadius: radius))
+            .tidyShadow(radius: 6, y: 1)
     }
 
     /// Colored tinted card style
@@ -73,5 +74,51 @@ extension View {
     /// Standard screen-level padding
     func tidyScreenPadding() -> some View {
         self.padding(TidySpacing.xxl)
+    }
+}
+
+// MARK: - Semantic Colors
+
+enum TidyColor {
+    static let success = Color.green
+    static let warning = Color.orange
+    static let error = Color.red
+    static let info = Color.blue
+    static let ai = Color.purple
+
+    static let successBg  = Color.green.opacity(TidyOpacity.medium)
+    static let warningBg  = Color.orange.opacity(TidyOpacity.medium)
+    static let errorBg    = Color.red.opacity(TidyOpacity.medium)
+    static let infoBg     = Color.blue.opacity(TidyOpacity.medium)
+    static let aiBg       = Color.purple.opacity(TidyOpacity.medium)
+}
+
+// MARK: - Animation
+
+enum TidyAnimation {
+    static let standard  = Animation.easeInOut(duration: 0.22)
+    static let fast      = Animation.easeInOut(duration: 0.14)
+    static let spring    = Animation.spring(response: 0.35, dampingFraction: 0.75)
+    static let springFast = Animation.spring(response: 0.22, dampingFraction: 0.8)
+}
+
+// MARK: - Shadow
+
+struct TidyShadow: ViewModifier {
+    var color: Color = .black.opacity(0.06)
+    var radius: CGFloat = 8
+    var y: CGFloat = 2
+    func body(content: Content) -> some View {
+        content.shadow(color: color, radius: radius, x: 0, y: y)
+    }
+}
+
+extension View {
+    func tidyShadow(radius: CGFloat = 8, y: CGFloat = 2) -> some View {
+        modifier(TidyShadow(radius: radius, y: y))
+    }
+
+    func tidyShadowStrong() -> some View {
+        modifier(TidyShadow(color: .black.opacity(0.10), radius: 16, y: 4))
     }
 }
