@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import ImageIO
 import Security
+import Vision
 #if canImport(PDFKit)
 import PDFKit
 #endif
@@ -326,7 +327,7 @@ actor FileIntelligenceService {
                 for (offset, path) in batch.enumerated() {
                     if Task.isCancelled { break }
                     guard let file = try store.fileByPath(path) else { continue }
-                    let text = extractTextSnippet(filePath: path, ext: file.ext)
+                    let text = await extractTextSnippet(filePath: path, ext: file.ext)
                     if let intel = await analyze(
                         filePath: path, pdfText: text,
                         fileName: file.name, ext: file.ext,
@@ -399,7 +400,7 @@ actor FileIntelligenceService {
         let attrs = (try? FileManager.default.attributesOfItem(atPath: path)) ?? [:]
         let size = (attrs[.size] as? Int64) ?? 0
         let modDate = (attrs[.modificationDate] as? Date) ?? Date()
-        let text = extractTextSnippet(filePath: path, ext: ext)
+        let text = await extractTextSnippet(filePath: path, ext: ext)
         return await analyze(
             filePath: path, pdfText: text,
             fileName: fileName, ext: ext,
@@ -745,14 +746,84 @@ actor FileIntelligenceService {
 
     // MARK: - Text extraction
 
-    private func extractTextSnippet(filePath: String, ext: String) -> String? {
+    private func extractTextSnippet(filePath: String, ext: String) async -> String? {
         switch ext.lowercased() {
-        case "pdf": return extractPDFText(filePath: filePath)
+        case "pdf":
+            // Try text layer first (fast), fall back to Vision OCR for scanned PDFs
+            if let text = extractPDFText(filePath: filePath), !text.isEmpty {
+                return text
+            }
+            return await extractScannedPDFViaOCR(filePath: filePath)
         case "txt", "md", "markdown", "rtf", "csv", "json", "xml",
              "yaml", "yml", "toml", "ini", "conf", "cfg":
             return extractPlainText(filePath: filePath)
         default: return nil
         }
+    }
+
+    /// Uses Vision framework to OCR scanned (image-layer) PDF pages.
+    /// Only called when PDFKit text extraction returns empty (i.e., scanned PDF).
+    private func extractScannedPDFViaOCR(filePath: String) async -> String? {
+#if canImport(PDFKit) && canImport(Vision)
+        guard let doc = PDFDocument(url: URL(fileURLWithPath: filePath)) else { return nil }
+        var resultChunks: [String] = []
+        var totalChars = 0
+        let pagesToOCR = min(doc.pageCount, 3)
+
+        for i in 0..<pagesToOCR {
+            guard totalChars < 800 else { break }
+            guard let page = doc.page(at: i) else { continue }
+
+            // Render PDF page to NSImage at 2× scale (144 dpi — good OCR quality)
+            let scale: CGFloat = 2.0
+            let mediaBox = page.bounds(for: .mediaBox)
+
+            // PDFPage.draw requires NSGraphicsContext — render via NSImage
+            let renderSize = CGSize(width: mediaBox.width * scale, height: mediaBox.height * scale)
+            let ns = NSImage(size: renderSize)
+            ns.lockFocus()
+            if let gc = NSGraphicsContext.current {
+                let ctx = gc.cgContext
+                ctx.setFillColor(CGColor(gray: 1.0, alpha: 1.0))
+                ctx.fill(CGRect(origin: .zero, size: renderSize))
+                ctx.scaleBy(x: scale, y: scale)
+                page.draw(with: .mediaBox, to: ctx)
+            }
+            ns.unlockFocus()
+
+            guard let tiff = ns.tiffRepresentation,
+                  let bitmap = NSBitmapImageRep(data: tiff),
+                  let cgImage = bitmap.cgImage else { continue }
+
+            let pageText = await withCheckedContinuation { (cont: CheckedContinuation<String, Never>) in
+                let request = VNRecognizeTextRequest { req, _ in
+                    let observations = req.results as? [VNRecognizedTextObservation] ?? []
+                    let text = observations.compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+                    cont.resume(returning: text)
+                }
+                request.recognitionLevel = .accurate
+                request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US", "ja"]
+                request.usesLanguageCorrection = true
+
+                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+                do {
+                    try handler.perform([request])
+                } catch {
+                    cont.resume(returning: "")
+                }
+            }
+
+            if !pageText.isEmpty {
+                resultChunks.append(pageText)
+                totalChars += pageText.count
+            }
+        }
+
+        let combined = resultChunks.joined(separator: "\n")
+        return combined.isEmpty ? nil : String(combined.prefix(800))
+#else
+        return nil
+#endif
     }
 
     private func extractPlainText(filePath: String) -> String? {
