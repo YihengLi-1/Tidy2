@@ -13,6 +13,7 @@ struct DigestView: View {
     @State private var showCompletion = false
     @State private var completionSummary: AppState.ExecutionSummary? = nil
     @State private var scanWasRunning = false
+    @State private var executionError: String? = nil
 
     // MARK: - State machine
 
@@ -241,6 +242,29 @@ struct DigestView: View {
         // AI error banner
         if let err = appState.aiAnalysisLastError {
             aiErrorBanner(err)
+        }
+
+        // Execution failure banner
+        if let err = executionError {
+            HStack(spacing: TidySpacing.sm) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                Text(err)
+                    .font(.caption.weight(.medium))
+                Spacer()
+                Button {
+                    executionError = nil
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(TidySpacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.red.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
         }
 
         // Task cards — ordered by impact
@@ -885,6 +909,7 @@ struct DigestView: View {
 
     private func executeAll() {
         isExecutingAll = true
+        executionError = nil
         Task {
             let summary = await appState.executeAllRecommendations()
             await MainActor.run {
@@ -893,9 +918,11 @@ struct DigestView: View {
                     // At least one action succeeded — show success
                     completionSummary = summary
                     withAnimation { showCompletion = true }
+                } else {
+                    // Nothing moved — surface the reason from statusMessage
+                    let msg = appState.statusMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+                    executionError = msg.isEmpty ? "整理失败，请检查归档文件夹权限" : msg
                 }
-                // If total == 0, stay on taskEngine so user sees error banner
-                // (appState.statusMessage / aiAnalysisLastError will surface the issue)
             }
         }
     }
