@@ -9,6 +9,7 @@ struct DigestView: View {
     @AppStorage("hasRunFullHistoryScan") private var hasRunFullHistoryScan = false
 
     @State private var isExecutingAll = false
+    @State private var showExecutionPreview = false
     @State private var showCompletion = false
     @State private var completionSummary: AppState.ExecutionSummary? = nil
     @State private var scanWasRunning = false
@@ -62,6 +63,27 @@ struct DigestView: View {
         return n
     }
 
+    private var archiveItemsForPreview: [(filename: String, source: String, destination: String)] {
+        let root = appState.archiveRootPath
+        let rootName = root.isEmpty ? "Tidy Archive" : URL(fileURLWithPath: root).lastPathComponent
+        return appState.aiIntelligenceItems
+            .filter { $0.keepOrDelete == .keep && !$0.suggestedFolder.isEmpty }
+            .map { item in
+                let filename = URL(fileURLWithPath: item.filePath).lastPathComponent
+                let dest = "\(rootName)/\(item.suggestedFolder)/\(filename)"
+                return (filename, item.filePath, dest)
+            }
+    }
+
+    private var deleteItemsForPreview: [(filename: String, reason: String)] {
+        appState.aiIntelligenceItems
+            .filter { $0.keepOrDelete == .delete }
+            .map { item in
+                let filename = URL(fileURLWithPath: item.filePath).lastPathComponent
+                return (filename, item.reason.isEmpty ? "AI 建议删除" : item.reason)
+            }
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -79,6 +101,23 @@ struct DigestView: View {
             .animation(.easeInOut(duration: 0.25), value: viewState)
         }
         .navigationTitle("首页")
+        .sheet(isPresented: $showExecutionPreview) {
+            ExecutionPreviewSheet(
+                archiveItems: archiveItemsForPreview,
+                deleteItems: deleteItemsForPreview,
+                duplicateGroups: appState.duplicateGroups,
+                archiveRootPath: appState.archiveRootPath,
+                onConfirm: {
+                    showExecutionPreview = false
+                    executeAll()
+                },
+                onCancel: {
+                    showExecutionPreview = false
+                }
+            )
+            .environmentObject(appState)
+            .frame(minWidth: 560, minHeight: 420)
+        }
         .onChange(of: appState.isBusy) { newValue in
             if !newValue && scanWasRunning {
                 scanWasRunning = false
@@ -552,7 +591,7 @@ struct DigestView: View {
             }
 
             Button {
-                executeAll()
+                showExecutionPreview = true
             } label: {
                 if isExecutingAll {
                     HStack(spacing: 8) {
@@ -789,6 +828,135 @@ struct DigestView: View {
                 completionSummary = summary
                 isExecutingAll = false
                 withAnimation { showCompletion = true }
+            }
+        }
+    }
+}
+
+// MARK: - Execution Preview Sheet
+
+private struct ExecutionPreviewSheet: View {
+    let archiveItems: [(filename: String, source: String, destination: String)]
+    let deleteItems: [(filename: String, reason: String)]
+    let duplicateGroups: [DuplicateGroup]
+    let archiveRootPath: String
+    let onConfirm: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("确认整理计划")
+                        .font(.title3.weight(.semibold))
+                    Text("以下操作将立即执行，文件可从废纸篓或操作记录恢复")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("取消") { onCancel() }
+                    .buttonStyle(.bordered)
+                Button("确认执行") { onConfirm() }
+                    .buttonStyle(.borderedProminent)
+            }
+            .padding(TidySpacing.xxl)
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: TidySpacing.xl) {
+
+                    // Archive section
+                    if !archiveItems.isEmpty {
+                        VStack(alignment: .leading, spacing: TidySpacing.sm) {
+                            Label("归档 \(archiveItems.count) 个文件", systemImage: "folder.fill.badge.plus")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.purple)
+                            if !archiveRootPath.isEmpty {
+                                Text("目标根目录：\(archiveRootPath)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                ForEach(Array(archiveItems.enumerated()), id: \.offset) { _, item in
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "arrow.right")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                            .frame(width: 12)
+                                        Text(item.filename)
+                                            .font(.caption)
+                                            .lineLimit(1)
+                                        Text("→")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                        Text(item.destination)
+                                            .font(.caption)
+                                            .foregroundStyle(.purple.opacity(0.8))
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                        Spacer()
+                                    }
+                                    .padding(.vertical, 2)
+                                }
+                            }
+                            .padding(TidySpacing.md)
+                            .background(Color.purple.opacity(0.05))
+                            .clipShape(RoundedRectangle(cornerRadius: TidyRadius.md))
+                        }
+                    }
+
+                    // Delete section
+                    if !deleteItems.isEmpty {
+                        VStack(alignment: .leading, spacing: TidySpacing.sm) {
+                            Label("删除 \(deleteItems.count) 个文件（移到废纸篓）", systemImage: "trash.fill")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.orange)
+                            VStack(alignment: .leading, spacing: 2) {
+                                ForEach(Array(deleteItems.enumerated()), id: \.offset) { _, item in
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "trash")
+                                            .font(.caption2)
+                                            .foregroundStyle(.orange.opacity(0.7))
+                                            .frame(width: 12)
+                                        Text(item.filename)
+                                            .font(.caption)
+                                            .lineLimit(1)
+                                        Spacer()
+                                        Text(item.reason)
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                    .padding(.vertical, 2)
+                                }
+                            }
+                            .padding(TidySpacing.md)
+                            .background(Color.orange.opacity(0.05))
+                            .clipShape(RoundedRectangle(cornerRadius: TidyRadius.md))
+                        }
+                    }
+
+                    // Duplicates summary
+                    if !duplicateGroups.isEmpty {
+                        let toDelete = duplicateGroups.reduce(0) { $0 + max($1.files.count - 1, 0) }
+                        HStack(spacing: TidySpacing.sm) {
+                            Image(systemName: "doc.on.doc.fill")
+                                .foregroundStyle(.red.opacity(0.7))
+                            Text("清理 \(toDelete) 个重复文件（每组保留最新）")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(TidySpacing.md)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.red.opacity(0.04))
+                        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.md))
+                    }
+                }
+                .padding(TidySpacing.xxl)
             }
         }
     }
