@@ -34,7 +34,39 @@ struct Tidy2App: App {
                     StartupErrorView(launcher: launcher)
                 }
             }
-            .frame(minWidth: 780, minHeight: 520)
+            .frame(minWidth: 900, minHeight: 580)
+        }
+        .commands {
+            CommandGroup(after: .appInfo) {
+                if let appState = launcher.appState {
+                    Button("重新扫描") {
+                        appState.scanButtonTappedFromHome()
+                    }
+                    .keyboardShortcut("r", modifiers: .command)
+
+                    Button("AI 分析") {
+                        Task { await appState.analyzeNewFiles() }
+                    }
+                    .keyboardShortcut("a", modifiers: [.command, .shift])
+
+                    Divider()
+
+                    Button("智能整理") {
+                        appState.pendingTab = .aiFiles
+                    }
+                    .keyboardShortcut("1", modifiers: .command)
+
+                    Button("案件助手") {
+                        appState.pendingTab = .caseIntake
+                    }
+                    .keyboardShortcut("2", modifiers: .command)
+
+                    Button("偏好设置") {
+                        appState.pendingTab = .settings
+                    }
+                    .keyboardShortcut(",", modifiers: .command)
+                }
+            }
         }
 
         MenuBarExtra {
