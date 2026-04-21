@@ -10,6 +10,19 @@ struct DigestView: View {
     @State private var scanCompleteMessage: String? = nil
     @State private var scanWasRunning = false
 
+    // MARK: - AI computed props
+    private var aiArchiveCount: Int {
+        appState.aiIntelligenceItems.filter { $0.keepOrDelete == .keep && !$0.suggestedFolder.isEmpty }.count
+    }
+    private var aiDeleteCount: Int {
+        appState.aiIntelligenceItems.filter { $0.keepOrDelete == .delete }.count
+    }
+    private var hasAnyAIKey: Bool {
+        let gemini = FileIntelligenceService.readGeminiAPIKeyFromKeychain() ?? ""
+        let claude = FileIntelligenceService.readAPIKeyFromKeychain() ?? ""
+        return !gemini.isEmpty || !claude.isEmpty
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: TidySpacing.xl) {
@@ -77,6 +90,11 @@ struct DigestView: View {
                 } else if appState.totalFilesScanned == 0 {
                     scanPromptCard
                 } else {
+                    // AI results first — the main differentiator
+                    if aiArchiveCount > 0 || aiDeleteCount > 0 {
+                        aiResultsCard
+                    }
+
                     if appState.duplicateGroups.count > 0 && appState.duplicatesTotalWastedBytes > 20_000_000 {
                         duplicateCard
                     }
@@ -89,10 +107,22 @@ struct DigestView: View {
                     if appState.largeTotalBytes > 50_000_000 {
                         largeFilesCard
                     }
+
+                    // AI prompt — scan done, key configured, no results yet
+                    if aiArchiveCount == 0 && aiDeleteCount == 0 && appState.aiAnalyzedFilesCount == 0 && hasAnyAIKey {
+                        aiAnalysisPromptCard
+                    }
+
+                    // Onboard to AI — scan done but no key
+                    if aiArchiveCount == 0 && aiDeleteCount == 0 && appState.aiAnalyzedFilesCount == 0 && !hasAnyAIKey {
+                        aiOnboardCard
+                    }
+
                     if appState.duplicateGroups.count == 0 &&
                         appState.bundles.count == 0 &&
                         appState.largeTotalBytes <= 50_000_000 &&
                         appState.oldInstallers.isEmpty &&
+                        aiArchiveCount == 0 && aiDeleteCount == 0 &&
                         autoCleanSuccessMessage == nil {
                         cleanCard
                     }
@@ -186,6 +216,119 @@ struct DigestView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.orange.opacity(TidyOpacity.medium))
         .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xl))
+    }
+
+    // MARK: - AI Cards
+
+    /// Shown when AI has found files to archive or delete
+    private var aiResultsCard: some View {
+        VStack(alignment: .leading, spacing: TidySpacing.lg) {
+            HStack(spacing: TidySpacing.sm) {
+                Image(systemName: "brain")
+                    .foregroundStyle(.purple)
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("AI 整理计划已就绪")
+                        .font(.subheadline.weight(.semibold))
+                    Text("AI 读取了文件内容，生成了专属整理方案")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            HStack(spacing: TidySpacing.md) {
+                if aiArchiveCount > 0 {
+                    Label("\(aiArchiveCount) 个可归档", systemImage: "folder.fill")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.purple)
+                        .padding(.horizontal, TidySpacing.sm)
+                        .padding(.vertical, 3)
+                        .background(Color.purple.opacity(TidyOpacity.strong))
+                        .clipShape(Capsule())
+                }
+                if aiDeleteCount > 0 {
+                    Label("\(aiDeleteCount) 个可删除", systemImage: "trash.fill")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, TidySpacing.sm)
+                        .padding(.vertical, 3)
+                        .background(Color.red.opacity(TidyOpacity.strong))
+                        .clipShape(Capsule())
+                }
+            }
+
+            Button("查看整理计划") {
+                appState.openAIFiles()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.purple)
+        }
+        .padding(TidySpacing.xxl)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.purple.opacity(TidyOpacity.medium))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xl))
+    }
+
+    /// Shown when scan is done, AI key is configured, but analysis hasn't run yet
+    private var aiAnalysisPromptCard: some View {
+        VStack(alignment: .leading, spacing: TidySpacing.lg) {
+            HStack(spacing: TidySpacing.sm) {
+                Image(systemName: "brain")
+                    .foregroundStyle(.purple)
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("让 AI 深度理解你的文件")
+                        .font(.subheadline.weight(.semibold))
+                    Text("AI 会读取文件内容，生成比规则更精准的整理建议")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            Button {
+                Task { await appState.analyzeNewFiles() }
+            } label: {
+                Label(appState.isAIAnalyzing ? "分析中..." : "开始 AI 分析", systemImage: "sparkles")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.purple)
+            .disabled(appState.isAIAnalyzing)
+        }
+        .padding(TidySpacing.xxl)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.purple.opacity(TidyOpacity.light))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xl))
+    }
+
+    /// Shown when scan is done but no AI key has been set up yet
+    private var aiOnboardCard: some View {
+        VStack(alignment: .leading, spacing: TidySpacing.lg) {
+            HStack(spacing: TidySpacing.sm) {
+                Image(systemName: "sparkles")
+                    .foregroundStyle(.blue)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("开启 AI 分析，整理更精准")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Gemini Flash 完全免费，只需 Google 账号，每天 1500 次")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            Button("配置 AI Key →") {
+                appState.openSettings()
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(TidySpacing.xxl)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.blue.opacity(TidyOpacity.ultraLight))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xl))
+        .overlay(
+            RoundedRectangle(cornerRadius: TidyRadius.xl)
+                .strokeBorder(Color.blue.opacity(0.2), lineWidth: 1)
+        )
     }
 
     private var bundleCard: some View {
@@ -491,19 +634,26 @@ struct DigestView: View {
             HStack(spacing: 4) {
                 Image(systemName: "brain")
                     .font(.caption)
+                    .foregroundStyle(appState.isAIAnalyzing ? Color.purple : Color.secondary)
                 Text(aiStatusText)
                     .font(.caption)
+                    .foregroundStyle(appState.isAIAnalyzing ? Color.purple : Color.secondary)
+                if appState.isAIAnalyzing {
+                    ProgressView().controlSize(.mini).scaleEffect(0.7)
+                }
             }
-            .foregroundStyle(.secondary)
         }
         .buttonStyle(.plain)
     }
 
     private var aiStatusText: String {
-        if appState.aiAnalyzedFilesCount > 0 {
-            return "AI 已分析 \(appState.aiAnalyzedFilesCount) 个文件"
+        if appState.isAIAnalyzing {
+            return "AI 正在分析文件..."
         }
-        return "AI 分析：在「更多工具」中开始"
+        if appState.aiAnalyzedFilesCount > 0 {
+            return "AI 已分析 \(appState.aiAnalyzedFilesCount) 个文件 · 点击查看计划"
+        }
+        return "AI 分析：点击进入智能整理"
     }
 }
 

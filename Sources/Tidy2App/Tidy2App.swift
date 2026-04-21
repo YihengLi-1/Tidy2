@@ -50,8 +50,9 @@ struct Tidy2App: App {
         } label: {
             let bundles = launcher.appState?.bundles.count ?? 0
             let aiDelete = launcher.appState?.aiIntelligenceItems.filter { $0.keepOrDelete == .delete }.count ?? 0
+            let aiArchive = launcher.appState?.aiIntelligenceItems.filter { $0.keepOrDelete == .keep && !$0.suggestedFolder.isEmpty }.count ?? 0
             let expired = launcher.appState?.digest.expiredQuarantineCount ?? 0
-            let total = bundles + aiDelete + expired
+            let total = bundles + aiDelete + aiArchive + expired
             Label(total > 0 ? "\(total)" : "", systemImage: "folder.badge.gearshape")
         }
         .menuBarExtraStyle(.menu)
