@@ -47,6 +47,49 @@ struct AIFilesView: View {
                 if appState.aiIntelligenceItems.isEmpty {
                     if !hasAnyKey {
                         aiKeySetupPrompt
+                    } else if let s = appState.lastExecutionSummary, s.total > 0 {
+                        // Files were just organized — show success state with Finder button
+                        VStack(spacing: TidySpacing.xl) {
+                            Spacer(minLength: 24)
+                            VStack(spacing: TidySpacing.lg) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 56))
+                                    .foregroundStyle(.green.gradient)
+                                Text("整理计划已全部执行")
+                                    .font(.title3.weight(.semibold))
+                                VStack(spacing: 6) {
+                                    if s.archived > 0 {
+                                        Label("归档了 \(s.archived) 个文件", systemImage: "folder.fill.badge.plus")
+                                            .foregroundStyle(.purple)
+                                    }
+                                    if s.deleted > 0 {
+                                        Label("移到废纸篓 \(s.deleted) 个文件", systemImage: "trash.fill")
+                                            .foregroundStyle(.orange)
+                                    }
+                                }
+                                .font(.subheadline.weight(.medium))
+                                if s.archived > 0 && !s.archiveRootPath.isEmpty {
+                                    Button {
+                                        appState.openArchiveRootInFinder()
+                                    } label: {
+                                        Label("在 Finder 中查看归档文件夹", systemImage: "folder.badge.magnifyingglass")
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                            }
+                            HStack(spacing: TidySpacing.md) {
+                                Button("重新扫描") {
+                                    appState.scanButtonTappedFromHome()
+                                }
+                                .buttonStyle(.bordered)
+                                Button("回到首页") {
+                                    appState.pendingTab = nil
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                            Spacer(minLength: 24)
+                        }
+                        .frame(maxWidth: .infinity)
                     } else {
                         EmptyStateView(
                             icon: "brain",
