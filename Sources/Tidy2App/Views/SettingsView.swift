@@ -13,9 +13,45 @@ struct SettingsView: View {
     @AppStorage("downloads_archive_time_window") private var downloadTimeWindow = "all"
 
     @State private var showResetConfirm = false
+    @State private var geminiKey: String = FileIntelligenceService.readGeminiAPIKeyFromKeychain() ?? ""
+    @State private var claudeKey: String = FileIntelligenceService.readAPIKeyFromKeychain() ?? ""
 
     var body: some View {
         Form {
+            Section {
+                aiKeyRow(
+                    label: "Gemini API Key",
+                    sublabel: "免费 · Google AI Studio",
+                    placeholder: "AIza...",
+                    text: $geminiKey,
+                    onSave: { newVal in
+                        FileIntelligenceService.saveGeminiAPIKey(newVal)
+                        if !newVal.isEmpty { AIProvider.setCurrent(.gemini) }
+                    },
+                    isSet: !geminiKey.isEmpty,
+                    getKeyURL: "https://aistudio.google.com/apikey"
+                )
+                aiKeyRow(
+                    label: "Claude API Key",
+                    sublabel: "付费 · Anthropic",
+                    placeholder: "sk-ant-...",
+                    text: $claudeKey,
+                    onSave: { newVal in
+                        FileIntelligenceService.saveAPIKey(newVal)
+                        if !newVal.isEmpty { AIProvider.setCurrent(.claude) }
+                    },
+                    isSet: !claudeKey.isEmpty,
+                    getKeyURL: "https://console.anthropic.com/settings/keys"
+                )
+                Toggle("扫描后自动 AI 分析", isOn: $autoAnalyzeEnabled)
+            } header: {
+                Label("AI 分析", systemImage: "brain")
+            } footer: {
+                Text("Gemini Flash 免费，推荐使用。填入 Key 后每次扫描自动分析。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("归档设置") {
                 HStack(alignment: .firstTextBaseline, spacing: TidySpacing.lg) {
                     VStack(alignment: .leading, spacing: TidySpacing.xxs) {
@@ -50,7 +86,6 @@ struct SettingsView: View {
                     .disabled(!autoScanEnabled)
                 }
 
-                Toggle("扫描后自动 AI 分析", isOn: $autoAnalyzeEnabled)
             }
 
             Section("扫描范围") {
@@ -222,6 +257,41 @@ struct SettingsView: View {
                 downloadTimeWindow = newValue.rawValue
             }
         }
+    }
+
+    @ViewBuilder
+    private func aiKeyRow(
+        label: String,
+        sublabel: String,
+        placeholder: String,
+        text: Binding<String>,
+        onSave: @escaping (String) -> Void,
+        isSet: Bool,
+        getKeyURL: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: TidySpacing.xs) {
+            HStack(spacing: TidySpacing.sm) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label).font(.subheadline.weight(.medium))
+                    Text(sublabel).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if isSet {
+                    Label("已设置", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                } else {
+                    Link("获取 Key →", destination: URL(string: getKeyURL)!)
+                        .font(.caption)
+                }
+            }
+            SecureField(placeholder, text: text)
+                .textFieldStyle(.roundedBorder)
+                .onChange(of: text.wrappedValue) { newValue in
+                    onSave(newValue)
+                }
+        }
+        .padding(.vertical, TidySpacing.xxs)
     }
 
     @ViewBuilder

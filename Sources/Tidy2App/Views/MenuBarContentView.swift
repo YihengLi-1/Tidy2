@@ -18,12 +18,16 @@ struct MenuBarContentView: View {
 
             if totalPending > 0 {
                 VStack(alignment: .leading, spacing: 4) {
-                    if appState.bundles.count > 0 {
-                        statRow("square.stack.3d.up", "\(appState.bundles.count) 条整理建议", .green)
-                    }
+                    let aiArchive = appState.aiIntelligenceItems.filter { $0.keepOrDelete == .keep && !$0.suggestedFolder.isEmpty }.count
                     let aiDel = appState.aiIntelligenceItems.filter { $0.keepOrDelete == .delete }.count
+                    if aiArchive > 0 {
+                        statRow("brain", "\(aiArchive) 个文件待归档", .purple)
+                    }
                     if aiDel > 0 {
                         statRow("trash", "\(aiDel) 个 AI 建议删除", .orange)
+                    }
+                    if appState.bundles.count > 0 {
+                        statRow("square.stack.3d.up", "\(appState.bundles.count) 条整理建议", .green)
                     }
                     if appState.duplicateGroups.count > 0 {
                         statRow("doc.on.doc", "\(appState.duplicateGroups.count) 组重复文件", .red)
@@ -46,12 +50,28 @@ struct MenuBarContentView: View {
 
             Text(lastScanText).font(.caption).foregroundStyle(.secondary)
 
-            Button("立即扫描") {
-                Task { await appState.runAutopilotNow() }
+            HStack(spacing: 8) {
+                Button("立即扫描") {
+                    Task { await appState.runAutopilotNow() }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(appState.isBusy)
+
+                if appState.totalFilesScanned > 0 && !appState.isAIAnalyzing {
+                    Button("AI 分析") {
+                        Task { await appState.analyzeNewFiles() }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                if appState.isAIAnalyzing {
+                    HStack(spacing: 4) {
+                        ProgressView().controlSize(.mini)
+                        Text("AI 分析中").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .disabled(appState.isBusy)
 
             Divider()
 
@@ -65,10 +85,10 @@ struct MenuBarContentView: View {
     }
 
     private var totalPending: Int {
-        appState.bundles.count +
-        appState.aiIntelligenceItems.filter { $0.keepOrDelete == .delete }.count +
-        appState.duplicateGroups.count +
-        appState.digest.expiredQuarantineCount
+        let aiArchive = appState.aiIntelligenceItems.filter { $0.keepOrDelete == .keep && !$0.suggestedFolder.isEmpty }.count
+        let aiDel = appState.aiIntelligenceItems.filter { $0.keepOrDelete == .delete }.count
+        return appState.bundles.count + aiArchive + aiDel +
+               appState.duplicateGroups.count + appState.digest.expiredQuarantineCount
     }
 
     private func statRow(_ icon: String, _ label: String, _ color: Color) -> some View {

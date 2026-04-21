@@ -11,13 +11,22 @@ struct RootView: View {
         NavigationSplitView {
             List {
                 sidebarRow(.home, title: "首页", icon: "house")
+
+                // AI 智能整理 — primary slot
+                sidebarRow(
+                    .aiFiles,
+                    title: "智能整理",
+                    icon: "brain",
+                    badge: aiActionableCount,
+                    badgeColor: aiDeleteSuggestionCount > 0 ? .red : (aiActionableCount > 0 ? .purple : nil)
+                )
+
                 sidebarRow(.settings, title: "偏好设置", icon: "gearshape")
 
                 DisclosureGroup(isExpanded: $showMore) {
                     VStack(alignment: .leading, spacing: 2) {
                         disclosureRow(.duplicates, title: "重复文件", icon: "doc.on.doc", badge: appState.duplicateGroups.count)
                         disclosureRow(.bundles, title: "整理建议", icon: "square.stack.3d.up", badge: appState.pendingBundlesCount)
-                        disclosureRow(.aiFiles, title: "智能整理", icon: "brain", badge: aiDeleteSuggestionCount, badgeColor: aiDeleteSuggestionCount > 0 ? .red : nil)
                         disclosureRow(.cleanup, title: "清理建议", icon: "externaldrive.badge.minus")
                         disclosureRow(.quarantine, title: "隔离区", icon: "shield")
                         disclosureRow(.changeLog, title: "操作记录", icon: "clock.arrow.circlepath")
@@ -223,6 +232,12 @@ struct RootView: View {
         appState.aiIntelligenceItems.filter { $0.keepOrDelete == .delete }.count
     }
 
+    private var aiActionableCount: Int {
+        appState.aiIntelligenceItems.filter {
+            ($0.keepOrDelete == .keep && !$0.suggestedFolder.isEmpty) || $0.keepOrDelete == .delete
+        }.count
+    }
+
     // MARK: - Advanced menu
 
     @ViewBuilder
@@ -284,7 +299,7 @@ private enum SidebarItem: Hashable {
 
     var isPrimary: Bool {
         switch self {
-        case .home, .search, .settings:
+        case .home, .search, .settings, .aiFiles:
             return true
         default:
             return false

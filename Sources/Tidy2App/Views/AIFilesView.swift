@@ -44,11 +44,17 @@ struct AIFilesView: View {
 
                 // Empty state
                 if appState.aiIntelligenceItems.isEmpty {
-                    EmptyStateView(
-                        icon: "brain",
-                        title: "还没有 AI 分析结果",
-                        subtitle: "点击「开始分析」让 AI 理解你的文件内容并生成整理计划"
-                    )
+                    if !hasAnyKey {
+                        aiKeySetupPrompt
+                    } else {
+                        EmptyStateView(
+                            icon: "brain",
+                            title: appState.totalFilesScanned == 0 ? "先扫描文件，再运行 AI 分析" : "还没有 AI 分析结果",
+                            subtitle: appState.totalFilesScanned == 0
+                                ? "回到首页，点击「开始扫描」"
+                                : "点击「开始分析」，AI 会读取文件内容并生成整理计划"
+                        )
+                    }
                 } else {
                     // Archive plan groups
                     if !archiveGroups.isEmpty {
@@ -414,6 +420,52 @@ struct AIFilesView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Key Setup Prompt
+
+    private var hasAnyKey: Bool {
+        let gemini = FileIntelligenceService.readGeminiAPIKeyFromKeychain() ?? ""
+        let claude = FileIntelligenceService.readAPIKeyFromKeychain() ?? ""
+        return !gemini.isEmpty || !claude.isEmpty
+    }
+
+    private var aiKeySetupPrompt: some View {
+        VStack(spacing: TidySpacing.xl) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 40))
+                .foregroundStyle(.blue)
+
+            VStack(spacing: TidySpacing.sm) {
+                Text("AI 分析需要 API Key")
+                    .font(.title3.weight(.semibold))
+                Text("Gemini Flash 完全免费，用 Google 账号即可申请，每天 1500 次分析")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            VStack(spacing: TidySpacing.sm) {
+                Link(destination: URL(string: "https://aistudio.google.com/apikey")!) {
+                    HStack(spacing: TidySpacing.sm) {
+                        Image(systemName: "arrow.up.right.square")
+                        Text("免费获取 Gemini API Key")
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, TidySpacing.xl)
+                    .padding(.vertical, TidySpacing.sm)
+                    .background(Color.blue)
+                    .clipShape(RoundedRectangle(cornerRadius: TidyRadius.md))
+                }
+
+                Text("获取 Key 后，在下方「AI 设置」中填入")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(TidySpacing.xxxl)
     }
 
     // MARK: - Helpers
