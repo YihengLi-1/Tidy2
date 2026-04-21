@@ -567,7 +567,45 @@ final class AppState: ObservableObject {
     }
 
     func exportCaseSummary() -> String {
-        var lines: [String] = ["# 案件文件时间线\n", "生成时间：\(DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .short))\n"]
+        let dateStr = DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .short)
+        var lines: [String] = [
+            "# EB-1/O-1 案件文件清单",
+            "生成时间：\(dateStr)",
+            caseIntakeFolderPath.isEmpty ? "" : "文件夹：\(caseIntakeFolderPath)",
+            ""
+        ]
+
+        // ── Section 1: Gap Analysis ──────────────────────────────────
+        lines.append("## 一、EB-1/O-1 标准达标情况")
+        let byCategory = Dictionary(grouping: caseDocuments) { $0.suggestedFolder }
+        let keyCategories: [(String, Int, String)] = [
+            ("奖项",    3, "EB-1 标准一：国家级/国际级奖项"),
+            ("媒体报道", 3, "EB-1 标准三：媒体报道"),
+            ("专家推荐信", 3, "EB-1 标准八：专家证明"),
+            ("学术论文", 5, "EB-1 标准六：学术论文引用"),
+            ("评审经历", 2, "EB-1 标准四：担任评审"),
+            ("原创贡献", 1, "EB-1 标准五：原创贡献"),
+            ("会员资格", 0, "EB-1 标准二：专业学会会员"),
+            ("薪资证明", 0, "EB-1 标准九：高薪证明"),
+            ("关键职位", 0, "EB-1 标准八：关键职位"),
+        ]
+        var satisfiedCount = 0
+        for (cat, minRec, criterion) in keyCategories {
+            let count = byCategory[cat]?.count ?? 0
+            let isSatisfied = minRec == 0 ? count > 0 : count >= minRec
+            if isSatisfied { satisfiedCount += 1 }
+            let status = count == 0 ? "❌ 未找到" : (isSatisfied ? "✅ 达标" : "⚠️ 不足")
+            let detail = minRec > 0 ? "（\(count)/建议\(minRec)+）" : "（\(count) 份）"
+            lines.append("\(status) \(criterion)\(detail)")
+        }
+        lines.append("")
+        lines.append(satisfiedCount >= 3
+            ? "→ 初步结论：满足 \(satisfiedCount) 项标准，具备 EB-1 申请基础"
+            : "→ 初步结论：目前满足 \(satisfiedCount) 项，建议补充材料后再申请（需≥3项）")
+        lines.append("")
+
+        // ── Section 2: Timeline ──────────────────────────────────────
+        lines.append("## 二、证据文件时间线")
         let byYear = Dictionary(grouping: caseDocuments) { $0.projectGroup ?? "未知" }
         let sortedYears = byYear.keys.sorted { a, b in
             if a == "未知" { return false }
@@ -575,21 +613,26 @@ final class AppState: ObservableObject {
             return a > b
         }
         for year in sortedYears {
-            lines.append("## \(year)")
+            lines.append("\n### \(year)")
             let docs = (byYear[year] ?? []).sorted { $0.suggestedFolder < $1.suggestedFolder }
             for doc in docs {
                 let name = URL(fileURLWithPath: doc.filePath).lastPathComponent
-                lines.append("• [\(doc.suggestedFolder)] \(doc.summary)")
-                lines.append("  文件：\(name)")
+                let summary = doc.summary.isEmpty ? name : doc.summary
+                lines.append("• [\(doc.suggestedFolder)] \(summary)")
+                lines.append("  原始文件：\(name)")
             }
-            lines.append("")
         }
-        // Category summary
-        lines.append("## 类别统计")
-        let byCategory = Dictionary(grouping: caseDocuments) { $0.suggestedFolder }
+        lines.append("")
+
+        // ── Section 3: Category counts ───────────────────────────────
+        lines.append("## 三、类别统计")
         for (cat, docs) in byCategory.sorted(by: { $0.value.count > $1.value.count }) {
             lines.append("• \(cat)：\(docs.count) 份")
         }
+        lines.append("")
+        lines.append("---")
+        lines.append("本文件由 Tidy 2.0 自动生成，仅供参考，请律师核实后使用")
+
         return lines.joined(separator: "\n")
     }
 
@@ -1201,6 +1244,7 @@ final class AppState: ObservableObject {
         let archived: Int
         let deleted: Int
         let freedBytes: Int64
+        let archiveRootPath: String
         var total: Int { archived + deleted }
     }
 
@@ -1230,11 +1274,21 @@ final class AppState: ObservableObject {
             freed += dupeResult.freedBytes
         }
 
-        let summary = ExecutionSummary(archived: archived, deleted: deleted, freedBytes: freed)
+        let summary = ExecutionSummary(archived: archived, deleted: deleted, freedBytes: freed, archiveRootPath: archiveRootPath)
         lastExecutionSummary = summary
         isBusy = false
         statusMessage = "✓ 整理完成：归档 \(archived) 个，删除 \(deleted) 个"
         return summary
+    }
+
+    func openArchiveRootInFinder() {
+        guard !archiveRootPath.isEmpty else { return }
+        NSWorkspace.shared.open(URL(fileURLWithPath: archiveRootPath))
+    }
+
+    func openCaseIntakeFolderInFinder() {
+        guard !caseIntakeFolderPath.isEmpty else { return }
+        NSWorkspace.shared.open(URL(fileURLWithPath: caseIntakeFolderPath))
     }
 
     func openInstallerCandidates() {

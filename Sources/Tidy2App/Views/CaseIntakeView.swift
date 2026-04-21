@@ -564,23 +564,37 @@ struct CaseIntakeView: View {
     // MARK: - Export Section
 
     private var exportSection: some View {
-        HStack(spacing: TidySpacing.md) {
-            Button {
-                let summary = appState.exportCaseSummary()
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(summary, forType: .string)
-                copiedSummary = true
-                Task {
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-                    await MainActor.run { copiedSummary = false }
-                }
-            } label: {
-                Label(copiedSummary ? "已复制！" : "复制时间线摘要", systemImage: copiedSummary ? "checkmark" : "doc.on.clipboard")
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(copiedSummary ? .green : .accentColor)
+        VStack(alignment: .leading, spacing: TidySpacing.md) {
+            Text("导出")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
 
-            Text("复制后可粘贴到 Word/Notion 作为案件摘要起草底稿")
+            HStack(spacing: TidySpacing.md) {
+                Button {
+                    let summary = appState.exportCaseSummary()
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(summary, forType: .string)
+                    copiedSummary = true
+                    Task {
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        await MainActor.run { copiedSummary = false }
+                    }
+                } label: {
+                    Label(copiedSummary ? "已复制！" : "复制完整清单", systemImage: copiedSummary ? "checkmark" : "doc.on.clipboard")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(copiedSummary ? .green : .accentColor)
+
+                Button {
+                    appState.openCaseIntakeFolderInFinder()
+                } label: {
+                    Label("在 Finder 中打开案件文件夹", systemImage: "folder.badge.magnifyingglass")
+                }
+                .buttonStyle(.bordered)
+                .disabled(appState.caseIntakeFolderPath.isEmpty)
+            }
+
+            Text("清单包含 EB-1 标准达标情况、证据时间线、类别统计，可直接粘贴到 Word/Notion 作为律师底稿")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
