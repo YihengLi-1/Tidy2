@@ -224,14 +224,14 @@ struct OnboardingView: View {
                     VStack(spacing: TidySpacing.sm) {
                         Button {
                             isCompleting = true
-                            let navigateToAI = hasAnyKey
                             Task {
                                 await appState.completeOnboarding()
                                 if appState.showOnboarding {
                                     isCompleting = false
-                                } else if navigateToAI {
-                                    appState.pendingTab = .aiFiles
                                 }
+                                // Always land on home: scan starts immediately after onboarding,
+                                // and DigestView shows the scanning animation while AI works.
+                                // Navigating to AIFilesView showed a confusing empty state before.
                             }
                         } label: {
                             HStack(spacing: TidySpacing.sm) {
