@@ -882,9 +882,14 @@ struct DigestView: View {
         Task {
             let summary = await appState.executeAllRecommendations()
             await MainActor.run {
-                completionSummary = summary
                 isExecutingAll = false
-                withAnimation { showCompletion = true }
+                if summary.total > 0 {
+                    // At least one action succeeded — show success
+                    completionSummary = summary
+                    withAnimation { showCompletion = true }
+                }
+                // If total == 0, stay on taskEngine so user sees error banner
+                // (appState.statusMessage / aiAnalysisLastError will surface the issue)
             }
         }
     }
