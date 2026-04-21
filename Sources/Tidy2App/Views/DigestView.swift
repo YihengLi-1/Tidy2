@@ -292,16 +292,22 @@ struct DigestView: View {
 
     /// Clean state — nothing to do
     private var allCleanView: some View {
-        VStack(spacing: TidySpacing.xl) {
+        // Determine heading based on whether we actually verified cleanliness
+        let hasVerifiedClean = appState.aiAnalyzedFilesCount > 0 || appState.totalFilesScanned < 10
+        let hasUnanalyzedFiles = appState.totalFilesScanned > 20 && !hasAnyAIKey && appState.aiAnalyzedFilesCount == 0
+
+        return VStack(spacing: TidySpacing.xl) {
             Spacer(minLength: 30)
 
             VStack(spacing: TidySpacing.lg) {
-                Image(systemName: "checkmark.seal.fill")
+                Image(systemName: hasUnanalyzedFiles ? "tray.full.fill" : "checkmark.seal.fill")
                     .font(.system(size: 64))
-                    .foregroundStyle(.green.gradient)
-                Text("一切井井有条")
+                    .foregroundStyle(hasUnanalyzedFiles ? Color.blue.gradient : Color.green.gradient)
+                Text(hasUnanalyzedFiles ? "扫描完成，建议开启 AI 分析" : "一切井井有条")
                     .font(.title2.weight(.semibold))
-                Text("没有待处理文件。Tidy 在后台守候，发现新文件会立即提醒你。")
+                Text(hasUnanalyzedFiles
+                     ? "发现 \(appState.totalFilesScanned) 个文件。开启 AI 可智能识别内容，找出可整理的文件。"
+                     : "没有待处理文件。Tidy 在后台守候，发现新文件会立即提醒你。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
