@@ -4,7 +4,6 @@ struct RootView: View {
     @EnvironmentObject private var appState: AppState
     @State private var showAdvancedEntryConfirm = false
     @State private var advancedUnlocked = false
-    @State private var showMore = false
     @State private var selectedSidebarItem: SidebarItem = .home
 
     var body: some View {
@@ -12,7 +11,6 @@ struct RootView: View {
             List {
                 sidebarRow(.home, title: "首页", icon: "house")
 
-                // AI 智能整理 — primary slot
                 sidebarRow(
                     .aiFiles,
                     title: "智能整理",
@@ -21,25 +19,9 @@ struct RootView: View {
                     badgeColor: aiDeleteSuggestionCount > 0 ? .red : (aiActionableCount > 0 ? .purple : nil)
                 )
 
-                // 案件助手 — primary slot for professional workflow
                 sidebarRow(.caseIntake, title: "案件助手", icon: "doc.badge.clock")
 
                 sidebarRow(.settings, title: "偏好设置", icon: "gearshape")
-
-                DisclosureGroup(isExpanded: $showMore) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        disclosureRow(.duplicates, title: "重复文件", icon: "doc.on.doc", badge: appState.duplicateGroups.count)
-                        disclosureRow(.bundles, title: "整理建议", icon: "square.stack.3d.up", badge: appState.pendingBundlesCount)
-                        disclosureRow(.cleanup, title: "清理建议", icon: "externaldrive.badge.minus")
-                        disclosureRow(.quarantine, title: "隔离区", icon: "shield")
-                        disclosureRow(.changeLog, title: "操作记录", icon: "clock.arrow.circlepath")
-                    }
-                    .padding(.top, 4)
-                } label: {
-                    Text("更多工具")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
             }
             .listStyle(.sidebar)
             .navigationSplitViewColumnWidth(min: 200, ideal: 220)
@@ -149,41 +131,7 @@ struct RootView: View {
         .padding(.vertical, 1)
     }
 
-    @ViewBuilder
-    private func disclosureRow(_ item: SidebarItem,
-                               title: String,
-                               icon: String,
-                               badge: Int = 0,
-                               badgeColor: Color? = nil) -> some View {
-        Button {
-            switchTo(item)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .frame(width: 16)
-                Text(title)
-                Spacer()
-                if badge > 0 {
-                    Text("\(badge)")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(badgeColor ?? .secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background((badgeColor ?? Color.secondary).opacity(0.12))
-                        .clipShape(Capsule())
-                }
-            }
-            .foregroundStyle(.primary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .buttonStyle(.plain)
-        .padding(.vertical, 3)
-    }
-
     private func switchTo(_ item: SidebarItem) {
-        if !item.isPrimary {
-            showMore = true
-        }
         selectedSidebarItem = item
         appState.path.removeAll()
     }
