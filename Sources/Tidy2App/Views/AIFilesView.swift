@@ -305,54 +305,95 @@ struct AIFilesView: View {
     }
 
     // MARK: - Unsure Section
+    // These are files AI couldn't confidently identify — don't force per-file decisions.
+    // Offer two bulk choices: archive to inbox, or dismiss.
+
+    @State private var showUnsureFiles = false
 
     private var unsurePlanSection: some View {
-        VStack(alignment: .leading, spacing: TidySpacing.sm) {
-            Text("待确认")
-                .font(.title3.weight(.semibold))
-            Text("AI 不确定如何处理，需要你来决定")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            ForEach(unsureItems.prefix(10), id: \.filePath) { file in
-                HStack(spacing: TidySpacing.sm) {
-                    Image(systemName: file.docType.icon)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 18)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(URL(fileURLWithPath: file.filePath).lastPathComponent)
-                            .font(.subheadline)
-                            .lineLimit(1)
-                        Text(file.summary.isEmpty ? file.reason : file.summary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    Spacer()
-                    Button("整理") {
-                        Task { let _ = await appState.moveFileToSuggestedFolder(file) }
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-
-                    Button("跳过") {
-                        Task { await appState.dismissAIRecord(path: file.filePath) }
-                    }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
+        VStack(alignment: .leading, spacing: TidySpacing.lg) {
+            // Header
+            HStack(spacing: TidySpacing.sm) {
+                Image(systemName: "questionmark.circle")
                     .foregroundStyle(.secondary)
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("AI 没把握的 \(unsureItems.count) 个文件")
+                        .font(.subheadline.weight(.semibold))
+                    Text("无法识别内容或无日期信息，批量处理最省事")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, TidySpacing.xs)
-                .tidyFileRowAccessibility(
-                    name: URL(fileURLWithPath: file.filePath).lastPathComponent,
-                    value: "待确认：\(file.summary)"
-                )
+                Spacer()
             }
 
-            if unsureItems.count > 10 {
-                Text("还有 \(unsureItems.count - 10) 个待确认文件…")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            // Two bulk action buttons
+            HStack(spacing: TidySpacing.md) {
+                Button {
+                    Task { await archiveUnsureToInbox() }
+                } label: {
+                    VStack(spacing: 2) {
+                        Text("全部归档到收件箱")
+                            .font(.subheadline.weight(.medium))
+                        Text("移到归档目录 / Inbox 文件夹")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                }
+                .buttonStyle(.bordered)
+                .disabled(appState.isBusy)
+
+                Button {
+                    Task { await dismissAllUnsure() }
+                } label: {
+                    VStack(spacing: 2) {
+                        Text("全部跳过，不处理")
+                            .font(.subheadline.weight(.medium))
+                        Text("保持原位，不移动")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                }
+                .buttonStyle(.bordered)
+                .disabled(appState.isBusy)
+            }
+
+            // Optional: show files list (collapsed by default)
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { showUnsureFiles.toggle() }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: showUnsureFiles ? "chevron.up" : "chevron.down")
+                        .font(.caption2)
+                    Text(showUnsureFiles ? "收起文件列表" : "查看 \(unsureItems.count) 个文件")
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+
+            if showUnsureFiles {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(unsureItems, id: \.filePath) { file in
+                        HStack(spacing: TidySpacing.sm) {
+                            Image(systemName: file.docType.icon)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 16)
+                                .font(.caption)
+                            Text(URL(fileURLWithPath: file.filePath).lastPathComponent)
+                                .font(.caption)
+                                .lineLimit(1)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        .padding(.vertical, 3)
+                        .padding(.horizontal, TidySpacing.sm)
+                    }
+                }
+                .background(Color.secondary.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: TidyRadius.sm))
             }
         }
         .padding(TidySpacing.xl)
@@ -531,6 +572,35 @@ struct AIFilesView: View {
         let paths = deleteItems.map { $0.filePath }
         let count = await appState.moveFilesToTrash(paths: paths)
         showResult(msg: "已移动 \(count) 个文件到废纸篓")
+    }
+
+    private func archiveUnsureToInbox() async {
+        guard !appState.archiveRootPath.isEmpty else {
+            resultIsError = true
+            showResult(msg: "请先在偏好设置中配置整理文件夹")
+            return
+        }
+        let inboxFolder = (appState.archiveRootPath as NSString).appendingPathComponent("Inbox")
+        var moved = 0
+        for file in unsureItems {
+            let src = URL(fileURLWithPath: file.filePath)
+            let dst = URL(fileURLWithPath: inboxFolder).appendingPathComponent(src.lastPathComponent)
+            do {
+                try FileManager.default.createDirectory(atPath: inboxFolder, withIntermediateDirectories: true)
+                try FileManager.default.moveItem(at: src, to: dst)
+                await appState.dismissAIRecord(path: file.filePath)
+                moved += 1
+            } catch { /* skip */ }
+        }
+        showResult(msg: "已将 \(moved) 个文件归档到 Inbox 文件夹")
+    }
+
+    private func dismissAllUnsure() async {
+        let count = unsureItems.count
+        for file in unsureItems {
+            await appState.dismissAIRecord(path: file.filePath)
+        }
+        showResult(msg: "已跳过 \(count) 个文件")
     }
 
     private func checkOllamaStatus() async {
