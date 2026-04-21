@@ -367,6 +367,23 @@ struct DigestView: View {
             if !hasRunFullHistoryScan {
                 historyBacklogCard
             }
+
+            // Surface search CTA when archive has content
+            if !appState.archiveRootPath.isEmpty {
+                Button {
+                    appState.pendingTab = .search
+                } label: {
+                    HStack(spacing: TidySpacing.sm) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(Color.accentColor)
+                        Text("找一个文件…")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
             Spacer(minLength: 30)
         }
         .frame(maxWidth: .infinity)

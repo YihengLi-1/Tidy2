@@ -19,6 +19,8 @@ struct RootView: View {
                     badgeColor: aiDeleteSuggestionCount > 0 ? .red : (aiActionableCount > 0 ? .purple : nil)
                 )
 
+                sidebarRow(.search, title: "搜索文件", icon: "magnifyingglass")
+
                 sidebarRow(.caseIntake, title: "案件助手", icon: "doc.badge.clock")
 
                 sidebarRow(.settings, title: "偏好设置", icon: "gearshape")
