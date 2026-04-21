@@ -155,18 +155,22 @@ struct AIFilesView: View {
         VStack(alignment: .leading, spacing: TidySpacing.sm) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("待整理")
+                    Text("归档计划")
                         .font(.title3.weight(.semibold))
                     Text("\(archiveItems.count) 个文件 → \(archiveGroups.count) 个文件夹")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("一键执行整理") {
-                    showExecuteConfirm = true
+                if appState.isBusy {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Button("一键执行整理") {
+                        showExecuteConfirm = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(archiveRootMissing)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(appState.isBusy || archiveRootMissing)
             }
 
             if archiveRootMissing {
@@ -188,6 +192,12 @@ struct AIFilesView: View {
 
             ForEach(archiveGroups) { group in
                 archiveGroupRow(group)
+            }
+        }
+        .onAppear {
+            // Auto-expand the largest group so users immediately see the plan
+            if let biggest = archiveGroups.max(by: { $0.files.count < $1.files.count }) {
+                expandedGroups.insert(biggest.id)
             }
         }
     }
@@ -226,6 +236,29 @@ struct AIFilesView: View {
                 ForEach(group.files, id: \.filePath) { file in
                     fileRow(file)
                 }
+            } else if group.files.count > 1 {
+                // Collapsed preview: show first 2 file names
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(group.files.prefix(2), id: \.filePath) { file in
+                        HStack(spacing: 6) {
+                            Image(systemName: file.docType.icon)
+                                .foregroundStyle(.tertiary)
+                                .font(.caption2)
+                                .frame(width: 14)
+                            Text(URL(fileURLWithPath: file.filePath).lastPathComponent)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    if group.files.count > 2 {
+                        Text("还有 \(group.files.count - 2) 个文件…")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .padding(.horizontal, TidySpacing.xl)
+                .padding(.bottom, TidySpacing.sm)
             }
         }
         .background(Color.blue.opacity(TidyOpacity.ultraLight))
@@ -246,6 +279,12 @@ struct AIFilesView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
+                }
+                if !file.suggestedFolder.isEmpty {
+                    Text("→ \(file.suggestedFolder)")
+                        .font(.caption2)
+                        .foregroundStyle(.blue.opacity(0.7))
+                        .lineLimit(1)
                 }
             }
             Spacer()

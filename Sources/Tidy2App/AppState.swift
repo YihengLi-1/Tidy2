@@ -159,6 +159,8 @@ final class AppState: ObservableObject {
     @Published var caseDocuments: [FileIntelligence] = []
     @Published var caseIntakeFolderPath: String = ""
     @Published var isCaseIntakeRunning: Bool = false
+    @Published var caseIntakeCancelled: Bool = false
+    @Published var caseIntakeError: String? = nil
     @Published var caseIntakeProgress: (analyzed: Int, total: Int) = (0, 0)
 
     @Published var rules: [UserRule] = []
@@ -522,22 +524,46 @@ final class AppState: ObservableObject {
     func runCaseIntake(folderPath: String) async {
         caseIntakeFolderPath = folderPath
         isCaseIntakeRunning = true
+        caseIntakeCancelled = false
+        caseIntakeError = nil
         caseIntakeProgress = (0, 0)
         caseDocuments = []
 
         let urls = enumerateCaseFiles(in: folderPath)
+        guard !urls.isEmpty else {
+            isCaseIntakeRunning = false
+            caseIntakeError = "所选文件夹中没有找到可分析的文件（支持 PDF、图片、文档）"
+            return
+        }
         caseIntakeProgress = (0, urls.count)
 
         var results: [FileIntelligence] = []
+        var failedCount = 0
         for (idx, url) in urls.enumerated() {
+            guard !caseIntakeCancelled else { break }
             if let intel = await services.fileIntelligenceService.analyzeLegalDocument(url: url) {
                 results.append(intel)
+            } else {
+                failedCount += 1
             }
             let current = idx + 1
             caseIntakeProgress = (current, urls.count)
             caseDocuments = results
         }
+
         isCaseIntakeRunning = false
+        if caseIntakeCancelled {
+            statusMessage = "案件分析已取消，已完成 \(results.count) 个文件"
+            caseIntakeCancelled = false
+        } else if failedCount > 0 && results.isEmpty {
+            caseIntakeError = "分析失败：\(failedCount) 个文件均无法读取，请确认文件格式"
+        } else if failedCount > 0 {
+            statusMessage = "分析完成：\(results.count) 个文件成功，\(failedCount) 个跳过"
+        }
+    }
+
+    func cancelCaseIntake() {
+        caseIntakeCancelled = true
     }
 
     func exportCaseSummary() -> String {

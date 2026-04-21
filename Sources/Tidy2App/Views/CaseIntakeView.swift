@@ -88,6 +88,7 @@ struct CaseIntakeView: View {
 
     @State private var selectedTab: Tab = .timeline
     @State private var copiedSummary = false
+    @State private var showReplaceConfirmation = false
 
     private enum Tab: String, CaseIterable {
         case timeline   = "时间线"
@@ -108,6 +109,27 @@ struct CaseIntakeView: View {
                 // ── Progress ───────────────────────────────────────
                 if appState.isCaseIntakeRunning {
                     progressSection
+                }
+
+                // ── Error state ────────────────────────────────────
+                if let err = appState.caseIntakeError {
+                    VStack(spacing: TidySpacing.lg) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 32))
+                            .foregroundStyle(.orange)
+                        Text("分析遇到问题")
+                            .font(.headline)
+                        Text(err)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button("重新选择文件夹") {
+                            Task { await appState.selectCaseIntakeFolder() }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .padding(TidySpacing.xxl)
+                    .frame(maxWidth: .infinity)
                 }
 
                 // ── Content tabs ───────────────────────────────────
@@ -182,16 +204,30 @@ struct CaseIntakeView: View {
             }
             Spacer()
             Button {
-                Task {
-                    if let path = await appState.selectCaseIntakeFolder() {
-                        await appState.runCaseIntake(folderPath: path)
+                if appState.caseDocuments.isEmpty {
+                    Task {
+                        if let path = await appState.selectCaseIntakeFolder() {
+                            await appState.runCaseIntake(folderPath: path)
+                        }
                     }
+                } else {
+                    showReplaceConfirmation = true
                 }
             } label: {
                 Label(appState.caseIntakeFolderPath.isEmpty ? "选择客户文件夹" : "重新选择", systemImage: "folder.badge.plus")
             }
             .buttonStyle(.borderedProminent)
             .disabled(appState.isCaseIntakeRunning)
+            .confirmationDialog("重新选择文件夹将清除当前分析结果，确定继续？", isPresented: $showReplaceConfirmation, titleVisibility: .visible) {
+                Button("重新选择", role: .destructive) {
+                    Task {
+                        if let path = await appState.selectCaseIntakeFolder() {
+                            await appState.runCaseIntake(folderPath: path)
+                        }
+                    }
+                }
+                Button("取消", role: .cancel) {}
+            }
         }
         .padding(TidySpacing.xl)
         .tidyCard(radius: TidyRadius.lg)
@@ -211,6 +247,12 @@ struct CaseIntakeView: View {
                 Text("\(Int(fraction * 100))%")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
+                Button("取消") {
+                    appState.cancelCaseIntake()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .foregroundStyle(.secondary)
             }
             ProgressView(value: fraction)
                 .tint(.purple)
