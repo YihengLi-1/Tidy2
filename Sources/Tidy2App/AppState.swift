@@ -21,6 +21,7 @@ final class AppState: ObservableObject {
         case rules
         case metrics
         case versionFiles
+        case caseIntake
     }
 
     struct RuleNudge: Identifiable, Hashable {
@@ -153,6 +154,12 @@ final class AppState: ObservableObject {
     @Published var oldInstallers: [IndexedFile] = []
     @Published var versionGroups: [VersionFileGroup] = []
     @Published var aiAnalysisLastError: FileIntelligenceService.AIError?
+
+    // Case intake
+    @Published var caseDocuments: [FileIntelligence] = []
+    @Published var caseIntakeFolderPath: String = ""
+    @Published var isCaseIntakeRunning: Bool = false
+    @Published var caseIntakeProgress: (analyzed: Int, total: Int) = (0, 0)
 
     @Published var rules: [UserRule] = []
     @Published var focusedRuleID: String?
@@ -488,6 +495,95 @@ final class AppState: ObservableObject {
 
     func openSettings() {
         pendingTab = .settings
+    }
+
+    func openCaseIntake() {
+        pendingTab = .caseIntake
+    }
+
+    func selectCaseIntakeFolder() async -> String? {
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
+                let panel = NSOpenPanel()
+                panel.canChooseFiles = false
+                panel.canChooseDirectories = true
+                panel.allowsMultipleSelection = false
+                panel.prompt = "选择客户文件夹"
+                panel.message = "选择包含客户文件的文件夹（支持嵌套子目录）"
+                if panel.runModal() == .OK {
+                    continuation.resume(returning: panel.url?.path)
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+
+    func runCaseIntake(folderPath: String) async {
+        caseIntakeFolderPath = folderPath
+        isCaseIntakeRunning = true
+        caseIntakeProgress = (0, 0)
+        caseDocuments = []
+
+        let urls = enumerateCaseFiles(in: folderPath)
+        caseIntakeProgress = (0, urls.count)
+
+        var results: [FileIntelligence] = []
+        for (idx, url) in urls.enumerated() {
+            if let intel = await services.fileIntelligenceService.analyzeLegalDocument(url: url) {
+                results.append(intel)
+            }
+            let current = idx + 1
+            caseIntakeProgress = (current, urls.count)
+            caseDocuments = results
+        }
+        isCaseIntakeRunning = false
+    }
+
+    func exportCaseSummary() -> String {
+        var lines: [String] = ["# 案件文件时间线\n", "生成时间：\(DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .short))\n"]
+        let byYear = Dictionary(grouping: caseDocuments) { $0.projectGroup ?? "未知" }
+        let sortedYears = byYear.keys.sorted { a, b in
+            if a == "未知" { return false }
+            if b == "未知" { return true }
+            return a > b
+        }
+        for year in sortedYears {
+            lines.append("## \(year)")
+            let docs = (byYear[year] ?? []).sorted { $0.suggestedFolder < $1.suggestedFolder }
+            for doc in docs {
+                let name = URL(fileURLWithPath: doc.filePath).lastPathComponent
+                lines.append("• [\(doc.suggestedFolder)] \(doc.summary)")
+                lines.append("  文件：\(name)")
+            }
+            lines.append("")
+        }
+        // Category summary
+        lines.append("## 类别统计")
+        let byCategory = Dictionary(grouping: caseDocuments) { $0.suggestedFolder }
+        for (cat, docs) in byCategory.sorted(by: { $0.value.count > $1.value.count }) {
+            lines.append("• \(cat)：\(docs.count) 份")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func enumerateCaseFiles(in path: String) -> [URL] {
+        let fm = FileManager.default
+        let url = URL(fileURLWithPath: path)
+        guard let enumerator = fm.enumerator(
+            at: url,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else { return [] }
+        var urls: [URL] = []
+        for case let fileURL as URL in enumerator {
+            guard (try? fileURL.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else { continue }
+            let ext = fileURL.pathExtension.lowercased()
+            guard ["pdf", "jpg", "jpeg", "png", "heic", "tiff", "txt", "md"].contains(ext) else { continue }
+            urls.append(fileURL)
+            if urls.count >= 200 { break }  // safety cap
+        }
+        return urls
     }
 
     func triggerAIAnalysis() async {
