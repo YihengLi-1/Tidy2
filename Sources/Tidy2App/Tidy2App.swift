@@ -56,6 +56,11 @@ struct Tidy2App: App {
                     }
                     .keyboardShortcut("1", modifiers: .command)
 
+                    Button("搜索文件") {
+                        appState.pendingTab = .search
+                    }
+                    .keyboardShortcut("f", modifiers: .command)
+
                     Button("案件助手") {
                         appState.pendingTab = .caseIntake
                     }
