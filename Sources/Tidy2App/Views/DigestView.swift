@@ -124,27 +124,60 @@ struct DigestView: View {
         .frame(maxWidth: .infinity)
     }
 
-    /// Busy — show indeterminate progress
+    /// Busy — show indeterminate progress with live stats
     private var scanningView: some View {
         VStack(spacing: TidySpacing.xl) {
             Spacer(minLength: 40)
             VStack(spacing: TidySpacing.lg) {
-                ProgressView()
-                    .controlSize(.large)
-                    .scaleEffect(1.4)
-                let detail = appState.scanProgressDetail.trimmingCharacters(in: .whitespacesAndNewlines)
-                Text(detail.isEmpty ? "正在扫描..." : detail)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                if appState.totalFilesScanned > 0 {
-                    Text("已发现 \(appState.totalFilesScanned) 个文件")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                // Animated icon
+                ZStack {
+                    Circle()
+                        .fill(Color.blue.opacity(0.1))
+                        .frame(width: 88, height: 88)
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 36, weight: .medium))
+                        .foregroundStyle(.blue)
                 }
+
+                VStack(spacing: TidySpacing.sm) {
+                    let detail = appState.scanProgressDetail.trimmingCharacters(in: .whitespacesAndNewlines)
+                    Text(appState.isAIAnalyzing ? "AI 正在分析文件…" : (detail.isEmpty ? "正在扫描…" : detail))
+                        .font(.title3.weight(.medium))
+
+                    if appState.totalFilesScanned > 0 {
+                        HStack(spacing: TidySpacing.lg) {
+                            statPill(value: "\(appState.totalFilesScanned)", label: "已发现")
+                            if appState.aiAnalyzedFilesCount > 0 {
+                                statPill(value: "\(appState.aiAnalyzedFilesCount)", label: "已分析")
+                            }
+                            if appState.duplicateGroups.count > 0 {
+                                statPill(value: "\(appState.duplicateGroups.count)", label: "组重复")
+                            }
+                        }
+                    }
+                }
+
+                ProgressView()
+                    .controlSize(.regular)
             }
             Spacer(minLength: 40)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func statPill(value: String, label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, TidySpacing.lg)
+        .padding(.vertical, TidySpacing.sm)
+        .background(Color.secondary.opacity(0.07))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
     }
 
     /// The core task-engine view — "X 件事要处理"
@@ -185,8 +218,13 @@ struct DigestView: View {
             largeFilesTaskCard
         }
 
+        // AI analysis in progress — live progress banner
+        if appState.isAIAnalyzing {
+            aiAnalyzingBanner
+        }
+
         // AI nudges (don't count as tasks but show below real tasks)
-        if !hasAIResults && appState.aiAnalyzedFilesCount == 0 {
+        if !hasAIResults && appState.aiAnalyzedFilesCount == 0 && !appState.isAIAnalyzing {
             if hasAnyAIKey {
                 aiAnalysisNudge
             } else {
@@ -216,38 +254,81 @@ struct DigestView: View {
     /// Clean state — nothing to do
     private var allCleanView: some View {
         VStack(spacing: TidySpacing.xl) {
-            Spacer(minLength: 40)
+            Spacer(minLength: 30)
+
             VStack(spacing: TidySpacing.lg) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.system(size: 64))
                     .foregroundStyle(.green.gradient)
                 Text("一切井井有条")
                     .font(.title2.weight(.semibold))
-                Text("没有待处理文件。Tidy 会在后台继续守候，发现新文件会立即提醒你。")
+                Text("没有待处理文件。Tidy 在后台守候，发现新文件会立即提醒你。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-
-                if !hasAnyAIKey {
-                    Button("开启 AI 分析（免费）→") {
-                        appState.openSettings()
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                } else if appState.aiAnalyzedFilesCount == 0 && appState.totalFilesScanned > 0 {
-                    Button {
-                        Task { await appState.analyzeNewFiles() }
-                    } label: {
-                        Label(appState.isAIAnalyzing ? "分析中..." : "运行 AI 深度分析", systemImage: "sparkles")
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(appState.isAIAnalyzing)
-                }
             }
+
+            // Cumulative impact stats
+            if cumulativeArchivedCount > 0 || cumulativeDeletedCount > 0 {
+                HStack(spacing: TidySpacing.xl) {
+                    if cumulativeArchivedCount > 0 {
+                        VStack(spacing: 3) {
+                            Text("\(cumulativeArchivedCount)")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .foregroundStyle(.purple)
+                            Text("已归档")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    if cumulativeDeletedCount > 0 {
+                        VStack(spacing: 3) {
+                            Text("\(cumulativeDeletedCount)")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .foregroundStyle(.orange)
+                            Text("已清理")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    VStack(spacing: 3) {
+                        Text("\(appState.totalFilesScanned)")
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .foregroundStyle(.blue)
+                        Text("已扫描")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(TidySpacing.xl)
+                .frame(maxWidth: 360)
+                .background(Color.secondary.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: TidyRadius.xl))
+            }
+
+            // AI analyzing banner (shows if analyzing in background)
+            if appState.isAIAnalyzing {
+                aiAnalyzingBanner
+            } else if !hasAnyAIKey {
+                Button("开启 AI 分析（免费）→") {
+                    appState.openSettings()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            } else if appState.aiAnalyzedFilesCount == 0 && appState.totalFilesScanned > 0 {
+                Button {
+                    Task { await appState.analyzeNewFiles() }
+                } label: {
+                    Label("运行 AI 深度分析", systemImage: "sparkles")
+                }
+                .buttonStyle(.bordered)
+                .disabled(appState.isAIAnalyzing)
+            }
+
             if !hasRunFullHistoryScan {
                 historyBacklogCard
             }
-            Spacer(minLength: 40)
+            Spacer(minLength: 30)
         }
         .frame(maxWidth: .infinity)
     }
@@ -506,6 +587,26 @@ struct DigestView: View {
 
     // MARK: - Nudge cards (don't count as tasks)
 
+    // MARK: - AI analyzing banner
+
+    private var aiAnalyzingBanner: some View {
+        HStack(spacing: TidySpacing.md) {
+            ProgressView().controlSize(.small)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("AI 正在深度分析文件内容…")
+                    .font(.caption.weight(.semibold))
+                Text("已分析 \(appState.aiAnalyzedFilesCount) 个，结果会自动出现")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(TidySpacing.lg)
+        .background(Color.purple.opacity(TidyOpacity.ultraLight))
+        .clipShape(RoundedRectangle(cornerRadius: TidyRadius.lg))
+        .overlay(RoundedRectangle(cornerRadius: TidyRadius.lg).strokeBorder(Color.purple.opacity(0.15), lineWidth: 1))
+    }
+
     private var aiAnalysisNudge: some View {
         HStack(spacing: TidySpacing.md) {
             Image(systemName: "sparkles")
@@ -608,6 +709,37 @@ struct DigestView: View {
     }
 
     // MARK: - Footer
+
+    // MARK: - Cumulative impact stats (from change log)
+
+    private var cumulativeArchivedCount: Int {
+        appState.changeLogEntries
+            .filter { !$0.isUndone }
+            .reduce(0) { sum, entry in
+                let t = entry.title
+                if t.contains("已移动") || t.contains("归档") || t.contains("整理完成") || t.contains("Bundle applied") {
+                    // Extract number from title like "已移动 5 个文件"
+                    let digits = t.components(separatedBy: .decimalDigits.inverted)
+                        .compactMap { Int($0) }.first ?? 1
+                    return sum + digits
+                }
+                return sum
+            }
+    }
+
+    private var cumulativeDeletedCount: Int {
+        appState.changeLogEntries
+            .filter { !$0.isUndone }
+            .reduce(0) { sum, entry in
+                let t = entry.title
+                if t.contains("废纸篓") || t.contains("删除") || t.contains("清理") {
+                    let digits = t.components(separatedBy: .decimalDigits.inverted)
+                        .compactMap { Int($0) }.first ?? 1
+                    return sum + digits
+                }
+                return sum
+            }
+    }
 
     private var footerStatsLine: some View {
         HStack(spacing: 6) {
