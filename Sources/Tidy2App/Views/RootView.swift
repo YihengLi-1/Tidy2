@@ -199,6 +199,9 @@ struct RootView: View {
     @ViewBuilder
     private var advancedMenuContent: some View {
         Section("操作") {
+            Button { switchTo(.changeLog); appState.pendingTab = .changeLog } label: {
+                Label("操作记录 & 撤销", systemImage: "clock.arrow.circlepath")
+            }
             Button { switchTo(.installerCandidates); appState.openInstallerCandidates() } label: {
                 Label("待处理安装包", systemImage: "tray")
             }
